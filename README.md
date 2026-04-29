@@ -230,14 +230,14 @@ For the full design, including how the script provides only inspiration phrases 
 
 | Command | Purpose |
 |---------|---------|
-| `status` | JSON state dump (incl. register lock, host namespace, legacy-state flag) |
+| `status` | JSON state dump (incl. state_dir, workspace_cwd, register lock, legacy-state flag) |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | Write visual anchor (stdin if no flag) |
 | `save-reference --src PATH` | Adopt an image (atomic, mode 644) |
 | `set-api --key K [--base-url U] [--models CSV]` | Persist API config (mode 600) |
 | `set-register-lock {--clear \| --until ISO --max R}` | Persist FORCE-channel register lock |
 | `migrate-from-legacy [--from <subdir>] [--force] [--purge]` | Copy state from legacy `~/.config/eidolon/` (or one of its subdirs) into `<cwd>/eidolon/` |
 
-**`scripts/generate.py`** — 7 flags:
+**`scripts/generate.py`** — 9 flags:
 
 | Flag | Purpose |
 |------|---------|
@@ -246,8 +246,10 @@ For the full design, including how the script provides only inspiration phrases 
 | `--bootstrap` | No reference required; with `--reference`, iterate on a candidate |
 | `--reference PATH` | Override saved reference for this call |
 | `--anchor PATH` | Override visual_anchor.md for this call |
+| `--backend NAME` | Force specific backend (codex/gemini/openai/fal/replicate/openrouter) |
 | `--list-scenes` | Print built-in scene shortcuts |
-| `--doctor` | State diagnostic |
+| `--list-backends [--json]` | Print backend detection results |
+| `--doctor` | State diagnostic (includes backend table) |
 
 **No mood / register / safeword / context-time CLI flags.** Those live in SKILL.md prose; the agent embeds appropriate language directly in `--prompt` per the inspiration vocabularies.
 

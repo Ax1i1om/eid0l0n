@@ -47,6 +47,8 @@ copy_bundle() {
   for item in SKILL.md scripts references assets; do
     cp -R "$REPO_ROOT/$item" "$dest/"
   done
+  # Strip dev artifacts that shouldn't ship to the host's skill dir.
+  find "$dest" \( -name __pycache__ -o -name "*.pyc" -o -name .DS_Store \) -exec rm -rf {} + 2>/dev/null || true
   echo "  $(c_ok "✓") copied skill bundle → $dest"
 }
 

@@ -228,7 +228,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 | 命令 | 用途 |
 |------|------|
-| `status` | JSON 状态 dump（含 register lock、agent 命名空间、已知 agent 列表、legacy state 标记） |
+| `status` | JSON 状态 dump（含 state_dir、workspace_cwd、register lock、legacy state 标记） |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | 写 visual anchor（不传 flag 就读 stdin） |
 | `save-reference --src PATH` | 收图作为参考（原子写、mode 644） |
 | `set-api --key K [--base-url U] [--models CSV]` | 持久化 API 配置（mode 600） |
@@ -244,8 +244,10 @@ agent **永远不会**复述你的强制词。激活是无声的。
 | `--bootstrap` | 不需要参考图;配 `--reference` 则迭代候选 |
 | `--reference PATH` | 临时覆盖保存的参考图 |
 | `--anchor PATH` | 临时覆盖 visual_anchor.md |
+| `--backend NAME` | 强制指定 backend（codex/gemini/openai/fal/replicate/openrouter） |
 | `--list-scenes` | 列出内置场景预设 |
-| `--doctor` | 状态诊断 |
+| `--list-backends [--json]` | 列出 backend 检测结果 |
+| `--doctor` | 状态诊断（含 backend 表） |
 
 **没有 mood / register / safeword / context-time 这种 flag。** 这些概念都在 SKILL.md prose 里;agent 直接在 `--prompt` 里按灵感词汇库挑合适的语言写进去。
 
