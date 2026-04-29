@@ -1,8 +1,8 @@
 ---
 name: eidolon
-description: "Generate one image of a recurring character (the host agent itself, or a named persona). The skill enforces character consistency only — same face, same identifying details, every time — by anchoring each call to a saved persona description and reference image. Everything else (scene, action, lighting, mood, register, intimacy, composition) is the agent's job: it writes the full prompt. On first use, the agent reads its own SOUL.md from its system prompt, asks the user about a reference image, and generates one for approval if needed."
+description: "Generate one image of a recurring character (the host agent itself, or a named persona). The skill enforces character consistency only — same face, same identifying details, every time — by anchoring each call to a saved persona description and reference image. Everything else (scene, action, lighting, mood, register, intimacy, composition) is the agent's job: it writes the full prompt. Auto-detects the user's existing image-gen capability across 6 providers (Codex/ChatGPT OAuth, Gemini, OpenAI, fal.ai, Replicate, OpenRouter) — no extra API key needed if any of them is already set up. On first use, the agent reads its own SOUL.md from its system prompt, asks the user about a reference image, and generates one for approval if needed."
 license: MIT
-allowed-tools: Bash(uv:*) Bash(python3:*) Bash(openclaw:*) Bash(cat:*) Read Write
+allowed-tools: Bash(uv:*) Bash(python3:*) Bash(openclaw:*) Bash(codex:*) Bash(cat:*) Read Write
 ---
 
 # EID0L0N
@@ -40,19 +40,51 @@ Every turn the agent runs `setup.py status` and routes from the JSON. There is n
 │ user invokes the skill   │
 └────────────┬─────────────┘
              ▼
-   setup.py status  →  JSON {anchor_exists, reference_exists, api_key_set, register_locked_until, register_max}
+   setup.py status  →  JSON {anchor_exists, reference_exists, backend_available,
+                              backend_selected, backends_available[], register_locked_until, register_max}
              │
    ┌─────────┴─────────┐
-   │ anchor_exists?    │
+   │ backend_available?│
    └─┬───────────────┬─┘
    no│             yes│
      ▼               ▼
-  Step A     reference_exists?
-              ┌─┬─────────┬┐
-              │ no       yes│
-              ▼               ▼
-           Step B         PER-SHOT
+  Step 0     anchor_exists?
+              ┌─┬───────────┬┐
+              │ no          yes│
+              ▼                ▼
+           Step A      reference_exists?
+                         ┌─┬─────────┬┐
+                         │ no       yes│
+                         ▼                ▼
+                      Step B          PER-SHOT
 ```
+
+### Step 0 — pick (or set up) an image-gen backend
+
+The script auto-detects 6 providers in priority order: `codex` → `gemini` → `openai` → `fal` → `replicate` → `openrouter`. If any one is configured, the agent never has to ask. To enumerate them in machine-readable form:
+
+```bash
+python3 scripts/setup.py detect-backends --json
+# {
+#   "selected": "codex",
+#   "forced": false,
+#   "available": ["codex"],
+#   "details": { "codex": {"available": true, "credit": "free for ChatGPT Plus/Pro/Team", "models": ["gpt-image-2"]}, ... }
+# }
+```
+
+If `backend_available` is `false`, tell the user (in the agent's voice) which option fits them best:
+
+| Backend | How to configure | Notes |
+|---------|------------------|-------|
+| `codex` | run `codex login` once (their own shell) | **Free** for ChatGPT Plus / Pro / Team. Auto-detected from `~/.codex/auth.json`. |
+| `gemini` | `export GEMINI_API_KEY=...` (or `GOOGLE_API_KEY`) | Generous free tier on AI Studio. |
+| `openai` | `export OPENAI_API_KEY=...` | Pay-per-image via Images API (gpt-image-2). |
+| `fal` | `export FAL_KEY=...` | Many models — flux, gpt-image-2, nano-banana. |
+| `replicate` | `export REPLICATE_API_TOKEN=...` | flux-kontext / flux-1.1-pro defaults. |
+| `openrouter` | `setup.py set-api --key <KEY>` | Legacy default. Pay-per-token. |
+
+Force a specific backend (overrides auto-pick) via `EIDOLON_IMAGE_BACKEND=<name>` in the agent's environment, or `--backend <name>` per call.
 
 ### Step A — write the visual anchor (no SOUL.md re-read needed)
 
@@ -298,22 +330,36 @@ Filename: `{character_slug}-{label}-{YYYYMMDD-HHMMSS}.png`. The script prints th
 
 ## CONFIGURATION
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `IMAGE_API_KEY` | yes | Bearer token. Env or `~/.config/eidolon/env` (mode 600) |
-| `IMAGE_API_BASE_URL` | no | Default `https://openrouter.ai/api/v1` |
-| `IMAGE_API_MODELS` | no | Comma-separated fallback chain |
-| `EIDOLON_VISUAL_ANCHOR` | no | Override anchor path |
-| `EIDOLON_REFERENCE` | no | Override reference path |
-| `EIDOLON_OUTPUT_DIR` | no | Override output dir |
+The script picks a backend automatically — `codex` (ChatGPT/Codex OAuth) wins if `~/.codex/auth.json` is set up, otherwise the first env var present in priority order. The agent does NOT need to "configure an API"; it only needs to ensure *one* backend is reachable.
 
-**Set the API key in the user's own shell**, not via the agent:
+### Backend selection
 
-```bash
-python3 scripts/setup.py set-api --key <KEY>
-```
+| Variable | Effect |
+|----------|--------|
+| `EIDOLON_IMAGE_BACKEND` | Force a specific backend: `codex` / `gemini` / `openai` / `fal` / `replicate` / `openrouter`. Overrides auto-pick. |
+| `EIDOLON_IMAGE_QUALITY` | `low` / `medium` (default) / `high` — applies to `codex` and `openai` (gpt-image-2 tiers). |
+| `EIDOLON_IMAGE_ASPECT` | `square` (default) / `portrait` / `landscape`. |
 
-Never have an agent collect the key from chat and run `set-api` for you. The key would land in chat logs + model context + disk.
+### Per-backend credentials (any one of these is enough)
+
+| Backend | Required env / file | Purpose |
+|---------|---------------------|---------|
+| `codex` | `~/.codex/auth.json` (from `codex login`) | Free for ChatGPT Plus/Pro/Team. No API key. |
+| `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google AI Studio direct. |
+| `openai` | `OPENAI_API_KEY` (+ optional `OPENAI_IMAGE_MODEL`) | OpenAI Images API. |
+| `fal` | `FAL_KEY` (+ optional `EIDOLON_FAL_MODEL`) | fal.ai queue. |
+| `replicate` | `REPLICATE_API_TOKEN` (+ optional `EIDOLON_REPLICATE_MODEL`) | Replicate predictions. |
+| `openrouter` (legacy) | `IMAGE_API_KEY` (+ optional `IMAGE_API_BASE_URL`, `IMAGE_API_MODELS`) | OpenRouter chat-completions. Set via `setup.py set-api --key <KEY>`. |
+
+### Path overrides
+
+| Variable | Purpose |
+|----------|---------|
+| `EIDOLON_VISUAL_ANCHOR` | Override anchor path |
+| `EIDOLON_REFERENCE` | Override reference path |
+| `EIDOLON_OUTPUT_DIR` | Override output dir |
+
+**If a backend needs an API key, set it in the user's own shell** — never have an agent collect the key from chat. That path would leak the key into chat logs + model context + disk.
 
 The force_word, release_word, and `max_register` policy live in the **user's SOUL.md** as natural-language instructions to the agent. Only the active LOCK (with timestamp) is persisted by this skill.
 

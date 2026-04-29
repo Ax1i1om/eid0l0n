@@ -2,14 +2,15 @@
 """
 EID0L0N (skill name: `eidolon`) — setup toolkit.
 
-5 thin commands. Everything else lives in agent context + SKILL.md prose.
+6 thin commands. Everything else lives in agent context + SKILL.md prose.
 
-    setup.py status                                    JSON state dump (incl. register lock)
+    setup.py status                                    JSON state dump (incl. register lock + backends)
+    setup.py detect-backends [--json]                  Available image-gen backends (auto-pick info)
     setup.py save-anchor [--text T | --from-file F] [--name NAME]
                                                        Write visual_anchor.md
     setup.py save-reference --src PATH                 Adopt image (atomic, flock-protected)
     setup.py set-api --key K [--base-url U] [--models CSV]
-                                                       Write env (mode 600)
+                                                       Write env (mode 600) — only needed for openrouter backend
     setup.py set-register-lock {--clear | --until ISO --max R}
                                                        Persist register lock for the FORCE channel
 """
@@ -33,6 +34,18 @@ LOCK_PATH   = CONFIG_DIR / ".lock"
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 REF_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+# Share the backend registry with generate.py so detect-backends and status
+# tell the same story without duplicating the provider list.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from generate import BACKENDS, detect_all, load_env_file as _load_gen_env  # type: ignore
+except Exception:
+    BACKENDS = []
+    def detect_all() -> dict:  # type: ignore
+        return {}
+    def _load_gen_env() -> None:  # type: ignore
+        pass
 
 
 @contextmanager
@@ -87,7 +100,12 @@ def write_prefs(prefs: dict) -> None:
 # ─── status ────────────────────────────────────────────────────────────────
 
 def cmd_status(args) -> int:
+    _load_gen_env()
     prefs = load_prefs()
+    detections = detect_all()
+    available = [name for name, info in detections.items() if info.get("available")]
+    forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
+    auto = next((name for name, _d, det, _g in BACKENDS if det().get("available")), "")
     payload = {
         "anchor_exists":         ANCHOR_PATH.exists(),
         "reference_exists":      find_existing_reference() is not None,
@@ -96,8 +114,42 @@ def cmd_status(args) -> int:
         "reference_path":        str(find_existing_reference() or ""),
         "register_locked_until": prefs.get("locked_until", ""),
         "register_max":          prefs.get("max_register", ""),
+        "backend_available":     bool(available),
+        "backends_available":    available,
+        "backend_selected":      forced or auto,
+        "backend_forced":        bool(forced),
     }
     print(json.dumps(payload, indent=2))
+    return 0
+
+
+# ─── detect-backends ───────────────────────────────────────────────────────
+
+def cmd_detect_backends(args) -> int:
+    _load_gen_env()
+    detections = detect_all()
+    forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
+    auto = next((name for name, _d, det, _g in BACKENDS if det().get("available")), "")
+    if args.json:
+        print(json.dumps({
+            "selected":  forced or auto,
+            "forced":    bool(forced),
+            "available": [name for name, info in detections.items() if info.get("available")],
+            "details":   detections,
+        }, indent=2))
+        return 0
+    print("eidolon image-gen backends (priority order):\n")
+    for name, display, _det, _gen in BACKENDS:
+        info = detections[name]
+        ok = "✓" if info.get("available") else "✗"
+        extra = f"  ({info.get('credit')})" if info.get("available") else f"  — {info.get('missing','')}"
+        print(f"  {ok} {name:11s} {display}{extra}")
+    if forced:
+        print(f"\nEIDOLON_IMAGE_BACKEND={forced}  (forced override)")
+    elif auto:
+        print(f"\nauto-selected: {auto}")
+    else:
+        print("\nauto-selected: (none — configure one)")
     return 0
 
 
@@ -219,6 +271,9 @@ def main() -> int:
 
     sub.add_parser("status")
 
+    a = sub.add_parser("detect-backends")
+    a.add_argument("--json", action="store_true", help="machine-readable output for the agent")
+
     a = sub.add_parser("save-anchor")
     a.add_argument("--text")
     a.add_argument("--from-file", dest="from_file")
@@ -240,6 +295,7 @@ def main() -> int:
     args = p.parse_args()
     dispatch = {
         "status":             cmd_status,
+        "detect-backends":    cmd_detect_backends,
         "save-anchor":        cmd_save_anchor,
         "save-reference":     cmd_save_reference,
         "set-api":            cmd_set_api,

@@ -1,6 +1,19 @@
 # Agent protocol — CLI reference
 
-eidolon exposes **5 setup commands** and 1 generation script. Mood / register / lock / decay logic is **not** in the CLI as a state machine — the agent tracks AUTO-channel transitions in its own context window per SKILL.md prose. The one exception is the FORCE-channel register lock, which is persisted to `preferences.json` so it survives context compaction (see `set-register-lock`). Code only enforces character consistency.
+eidolon exposes **6 setup commands** and 1 generation script. Mood / register / lock / decay logic is **not** in the CLI as a state machine — the agent tracks AUTO-channel transitions in its own context window per SKILL.md prose. The one exception is the FORCE-channel register lock, which is persisted to `preferences.json` so it survives context compaction (see `set-register-lock`). Code only enforces character consistency.
+
+## Backend auto-detection
+
+The script auto-picks one of 6 image-gen backends in priority order. Run `setup.py detect-backends [--json]` to enumerate; force a specific one with `EIDOLON_IMAGE_BACKEND=<name>` or `--backend <name>`.
+
+| # | Backend | What it needs | Notes |
+|---|---------|---------------|-------|
+| 1 | `codex` | `~/.codex/auth.json` (from `codex login`) | **Free** for ChatGPT Plus/Pro/Team. Routes through Codex Responses API → `image_generation` tool. |
+| 2 | `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google AI Studio direct, free tier available. |
+| 3 | `openai` | `OPENAI_API_KEY` (+ optional `OPENAI_IMAGE_MODEL`) | OpenAI Images API, gpt-image-2. |
+| 4 | `fal` | `FAL_KEY` (+ optional `EIDOLON_FAL_MODEL`) | fal.ai queue API. |
+| 5 | `replicate` | `REPLICATE_API_TOKEN` (+ optional `EIDOLON_REPLICATE_MODEL`) | Replicate predictions. |
+| 6 | `openrouter` | `IMAGE_API_KEY` (legacy — set via `setup.py set-api`) | OpenRouter chat-completions. |
 
 ---
 
@@ -51,13 +64,38 @@ Read-only state dump. Returns:
 {
   "anchor_exists": false,
   "reference_exists": false,
-  "api_key_set": true,
+  "api_key_set": false,
   "anchor_path": "",
-  "reference_path": ""
+  "reference_path": "",
+  "register_locked_until": "",
+  "register_max": "",
+  "backend_available": true,
+  "backends_available": ["codex"],
+  "backend_selected": "codex",
+  "backend_forced": false
 }
 ```
 
-Run this **first** every turn. Route from the JSON.
+Run this **first** every turn. Route from the JSON. Note: `api_key_set` is now informational only (it tracks the legacy `IMAGE_API_KEY`); the agent should branch on `backend_available` instead.
+
+## `setup.py detect-backends [--json]`
+
+Lists which of the 6 image-gen backends are reachable. Use `--json` for machine-readable output (the agent reads `selected` to know what auto-pick chose, and `available` for alternatives).
+
+```bash
+python3 scripts/setup.py detect-backends --json
+# {
+#   "selected": "codex",
+#   "forced": false,
+#   "available": ["codex", "gemini"],
+#   "details": {
+#     "codex":      {"available": true, "credit": "free for ChatGPT Plus/Pro/Team", "models": ["gpt-image-2"]},
+#     "gemini":     {"available": true, "credit": "free tier available", "models": ["gemini-2.5-flash-image-preview"]},
+#     "openai":     {"available": false, "missing": "OPENAI_API_KEY env var"},
+#     ...
+#   }
+# }
+```
 
 ---
 
@@ -95,9 +133,11 @@ Atomically (tmp + replace) copies an image to `~/.config/eidolon/reference.<ext>
 
 ## `setup.py set-api --key KEY [--base-url URL] [--models CSV]`
 
-Writes `~/.config/eidolon/env` (mode 600). **Run this in the user's own shell, not via an agent that received the key in chat.** That path leaks the key into chat logs + model context + disk.
+Writes `~/.config/eidolon/env` (mode 600) for the **`openrouter`** backend specifically. Other backends use shell env vars (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`) or no key at all (`codex` reads `~/.codex/auth.json`).
 
-If `IMAGE_API_KEY` is already in process env (host-injected), this command is optional.
+**Run this in the user's own shell, not via an agent that received the key in chat.** That path leaks the key into chat logs + model context + disk.
+
+If any other backend is reachable (e.g. `codex login` already done, or `GEMINI_API_KEY` exported), this command is unnecessary.
 
 ---
 
@@ -134,7 +174,7 @@ The user's `max_register` policy (`tender` / `intimate` cap) and force/release w
 
 ---
 
-## `generate.py` — 7 flags
+## `generate.py` — 9 flags
 
 ```
 --prompt P --label L           # write your own scene prose (primary mode)
@@ -142,8 +182,10 @@ The user's `max_register` policy (`tender` / `intimate` cap) and force/release w
 --bootstrap                    # for the initial reference portrait, no input image needed
 --reference PATH               # override the saved reference image for this call
 --anchor PATH                  # override visual_anchor.md for this call
+--backend NAME                 # force backend (codex|gemini|openai|fal|replicate|openrouter)
 --list-scenes                  # print scene shortcut list
---doctor                       # state diagnostic
+--list-backends [--json]       # print backend detection results
+--doctor                       # state diagnostic (includes backend table)
 ```
 
 The script:
@@ -163,8 +205,17 @@ That's it. No context flags, no register flag, no overlay flag, no time-of-day a
 ```python
 state = json.parse(setup.py status)
 
-if not state.api_key_set:
-    say "Run in your shell: setup.py set-api --key <KEY>. Don't paste the key here."
+if not state.backend_available:
+    say (
+        "I need a way to make images. Pick one (any one is enough):\n"
+        "  • codex      run `codex login` once — FREE if you have ChatGPT Plus/Pro/Team\n"
+        "  • gemini     export GEMINI_API_KEY=...\n"
+        "  • openai     export OPENAI_API_KEY=...\n"
+        "  • fal        export FAL_KEY=...\n"
+        "  • replicate  export REPLICATE_API_TOKEN=...\n"
+        "  • openrouter setup.py set-api --key <KEY>\n"
+        "Run that in your own shell — never paste the key here."
+    )
     STOP_TURN
 
 if not state.anchor_exists:

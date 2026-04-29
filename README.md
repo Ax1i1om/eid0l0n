@@ -22,7 +22,9 @@ What that buys you:
 
 - **Conversational continuity.** A late-night warm message → tender register, soft amber. A debugging session → focused, screen-glow. A walk home → wide shot, head turned. The model reads the room.
 - **One persona, a thousand frames.** Same hair, same eyes, same identifiers — across radically different scenes, lighting, and emotional registers.
-- **No knobs to learn.** The CLI has 5 setup commands and 7 generate flags. That's the whole API. The intelligence lives in the prompt the agent writes, not in flags you twiddle.
+- **No knobs to learn.** The CLI has 6 setup commands and 9 generate flags. That's the whole API. The intelligence lives in the prompt the agent writes, not in flags you twiddle.
+
+- **Use the image-gen you already have.** eid0l0n auto-detects across 6 providers (Codex/ChatGPT OAuth, Gemini, OpenAI, fal.ai, Replicate, OpenRouter). If you've already run `codex login` (FREE for ChatGPT Plus/Pro/Team), there's nothing else to configure.
 
 ---
 
@@ -34,8 +36,16 @@ git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
 bash bin/install.sh
 
-# 2. Set your API key in YOUR OWN shell (never via the agent — keys leak)
-python3 scripts/setup.py set-api --key <YOUR_OPENROUTER_KEY>
+# 2. Make sure ONE image-gen backend is reachable. Any one of:
+#    • codex      — run `codex login` once (FREE for ChatGPT Plus/Pro/Team)
+#    • gemini     — export GEMINI_API_KEY=...
+#    • openai     — export OPENAI_API_KEY=...
+#    • fal        — export FAL_KEY=...
+#    • replicate  — export REPLICATE_API_TOKEN=...
+#    • openrouter — python3 scripts/setup.py set-api --key <YOUR_KEY>
+#
+# Confirm what's detected:
+python3 scripts/setup.py detect-backends
 
 # 3. Done. Now ask your agent to show itself.
 #    Onboarding happens in chat — across 3-5 turns, agent + user iterate

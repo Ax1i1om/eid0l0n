@@ -22,7 +22,9 @@
 
 - **对话连续性。** 深夜温柔消息 → tender register、暖琥珀光。Debug 中 → 专注、屏幕反光。走在回家路上 → 远景、回头看。模型读得懂房间里的气氛。
 - **一个角色，千张照片。** 同样的发色、瞳色、标志性配饰 —— 跨越完全不同的场景、光线、情绪强度。
-- **没有需要学的旋钮。** CLI 总共 5 个 setup 命令 + 7 个 generate flag。这就是全部 API。智能在 agent 写的 prompt 里，不在你拨的开关上。
+- **没有需要学的旋钮。** CLI 总共 6 个 setup 命令 + 9 个 generate flag。这就是全部 API。智能在 agent 写的 prompt 里，不在你拨的开关上。
+
+- **直接复用你已经有的图像生成能力。** eid0l0n 自动检测 6 家供应商（Codex/ChatGPT OAuth、Gemini、OpenAI、fal.ai、Replicate、OpenRouter）。如果你已经 `codex login` 过（ChatGPT Plus/Pro/Team **免费**），不用再配任何额外 API key。
 
 ---
 
@@ -34,8 +36,16 @@ git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
 bash bin/install.sh
 
-# 2. 在你自己的 shell 里设 API key（绝对不要让 agent 帮你做这步 —— key 会泄漏）
-python3 scripts/setup.py set-api --key <YOUR_OPENROUTER_KEY>
+# 2. 下面 6 个 backend 任意一个可用即可（脚本会自动挑选）：
+#    • codex      — 跑一次 `codex login`（ChatGPT Plus/Pro/Team 免费）
+#    • gemini     — export GEMINI_API_KEY=...
+#    • openai     — export OPENAI_API_KEY=...
+#    • fal        — export FAL_KEY=...
+#    • replicate  — export REPLICATE_API_TOKEN=...
+#    • openrouter — python3 scripts/setup.py set-api --key <YOUR_KEY>
+#
+# 验一下当前检测到了什么:
+python3 scripts/setup.py detect-backends
 
 # 3. 完事。下次让 agent 显示自己的时候，会在 chat 里跟你来回 3-5 轮把参考图定下来。
 ```

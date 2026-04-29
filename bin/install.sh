@@ -134,12 +134,17 @@ echo "  you ask the agent to generate an image — it will read SOUL.md, ask"
 echo "  whether you have a reference image, and offer to generate one for"
 echo "  approval if you don't."
 echo
-echo "  Set the API key first:"
-echo "    python3 $REPO_ROOT/scripts/setup.py set-api --key <YOUR_KEY>"
+echo "  Pick an image-gen backend (any ONE is enough — auto-detected at run time):"
+echo "    • $(c_ok "codex")      FREE for ChatGPT Plus/Pro/Team — run \`codex login\` once"
+echo "    • $(c_ok "gemini")     export GEMINI_API_KEY=..."
+echo "    • $(c_ok "openai")     export OPENAI_API_KEY=..."
+echo "    • $(c_ok "fal")        export FAL_KEY=..."
+echo "    • $(c_ok "replicate")  export REPLICATE_API_TOKEN=..."
+echo "    • $(c_ok "openrouter") python3 $REPO_ROOT/scripts/setup.py set-api --key <YOUR_KEY>"
+echo
+echo "  See what's currently detected:"
+echo "    python3 $REPO_ROOT/scripts/setup.py detect-backends"
 echo
 echo "  Inspect state any time:"
 echo "    python3 $REPO_ROOT/scripts/setup.py status"
-echo
-echo "  Manual fallback (no SOUL.md, no agent):"
-echo "    python3 $REPO_ROOT/scripts/setup.py interactive"
 echo
