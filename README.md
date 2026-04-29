@@ -1,5 +1,7 @@
 # EID0L0N
 
+[中文](README.zh.md) · **English**
+
 > *εἴδωλον* — the image-form of a person, made present in their absence.
 
 **Your AI agent has a SOUL.md. Now it can have a body.**
