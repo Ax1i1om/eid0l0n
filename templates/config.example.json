@@ -1,0 +1,16 @@
+{
+  "_comment": "Model fallback chain. NEVER put api_key in this file — eidolon reads keys from $IMAGE_API_KEY env or ~/.config/eidolon/env (mode 600). Copy this file to ~/.config/eidolon/config.json to customize the model order.",
+  "primary": {
+    "base_url": "https://openrouter.ai/api/v1",
+    "models": [
+      "google/gemini-2.5-flash-image-preview",
+      "google/gemini-2.5-flash"
+    ]
+  },
+  "fallback": {
+    "base_url": "https://openrouter.ai/api/v1",
+    "models": [
+      "google/gemini-2.5-pro"
+    ]
+  }
+}
