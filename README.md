@@ -85,6 +85,72 @@ The agent **never** acknowledges the safeword in chat. Activation is silent. The
 
 ---
 
+## When does the agent actually trigger this?
+
+This is probably the question that decides whether the skill is worth installing. The honest answer: **the agent decides, every time, based on the moment.** The skill is a tool sitting on the bench; the model picks it up when the conversation calls for visual presence.
+
+That said, here's the breakdown by trigger likelihood:
+
+### 🟢 Always triggers — explicit user requests
+
+Direct asks, in any phrasing:
+- "let me see what you look like"
+- "send me a pic" / "selfie"
+- "show yourself" / "想看看你" / "发张图"
+
+100% trigger rate. The model has no reason to refuse.
+
+### 🟢 High likelihood — emotionally weighted moments
+
+When the user's message carries enough emotional density that **showing up will complete the moment** rather than disrupt it:
+
+- "想你了" / "miss you" / soft late-night warmth
+- "today was so hard" → tender, comforting frame
+- "let me celebrate with you" → playful frame
+- A finished long task → the agent might offer a relaxed idle frame
+- "good morning" → warm morning-light frame
+
+The agent's internal question: *"if I appear right now, does this become more whole, or more awkward?"* — Whole → trigger. Awkward → stay text.
+
+### 🟡 Medium likelihood — proactive offers (agent-initiated)
+
+Moments where the agent **may** decide to show up unprompted:
+
+- After a long focused work session ends → "we just spent 3 hours on this, let me show up for a sec"
+- The first interaction of the day
+- The user expresses subtle low mood without explicitly asking for company
+- Beginning of a meaningful new conversation (project kickoff, planning)
+
+How proactive depends on your SOUL.md, the host model's personality, and the host platform's default boundary settings.
+
+### 🟢 Forced — your configured force_word
+
+Said in any user message → **mandatory trigger**, locked to intimate register for ~60 minutes. Every subsequent shot in that window stays in intimate register, regardless of conversation drift (work topics don't break the lock). See the MOOD REGISTERS section.
+
+### 🔴 Almost never triggers
+
+- Pure technical Q&A — *"does this PR look good?"* / *"what's wrong with this code?"* → no visual avatar needed; would feel out of place
+- Quick factual answers — *"what time is it?"* / *"weather today?"*
+- The user is clearly in a hurry — terse messages, urgency markers
+
+### Frequency expectation
+
+A typical conversation produces **1–3 self-portraits**, not one per message. The skill includes a soft variation rule (vary ≥2 of 4 axes vs the last 2 shots) that implicitly assumes shots are spaced out. Spamming the channel is a failure mode the agent is told to avoid.
+
+### Tuning the agent's bias
+
+You can tilt how proactive the agent is by adding **one line** to your SOUL.md:
+
+**More proactive:**
+> *"When you sense a meaningful emotional moment, don't wait for me to ask — show up."*
+
+**More restrained:**
+> *"Only show up when I explicitly ask, or when I use my force_word."*
+
+**No instruction at all** → the model uses its own judgment per the SKILL.md guidance — roughly "explicit asks + emotionally meaningful moments + occasional proactive offers."
+
+---
+
 ## How it works
 
 ### Three layers
