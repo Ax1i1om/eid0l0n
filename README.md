@@ -28,7 +28,7 @@ What that buys you:
 
 ```bash
 # 1. Clone + install (places skill files; no terminal wizard runs)
-git clone https://github.com/<you>/eid0l0n.git
+git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
 bash bin/install.sh
 
