@@ -34,7 +34,7 @@
 # 1. clone + 安装（放好 skill 文件，不会启动任何终端向导）
 git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
-bash bin/install.sh
+bash scripts/install.sh
 
 # 2. 下面 6 个 backend 任意一个可用即可（脚本会自动挑选）：
 #    • codex      — 跑一次 `codex login`（ChatGPT Plus/Pro/Team 免费）
@@ -174,17 +174,18 @@ agent **可能**自己决定显形的时刻:
                                                                   │
 ┌─────────────────────────────────────────────────────────────────┘
 │  EID0L0N SKILL 层（这个仓库）
-│  setup.py — 5 个薄命令
+│  setup.py — 6 个薄命令
 │  generate.py — 图像生成；只保证 character anchor + reference image
 │  SKILL.md — agent 的导演手册（思维框架，不是强制模板）
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG 层（~/.config/eidolon/，mode 600）
+│  CONFIG 层（~/.config/eidolon/<agent>/，mode 600 —— <agent> 是你的 persona slug）
 │  visual_anchor.md — 角色描述（agent 从自己 SOUL 抽出来一次性写好）
 │  reference.png    — 标准参考图（用户给的，或者生成 + 审过的）
 │  env              — IMAGE_API_KEY，mode 600
 │  preferences.json — register lock 状态（活过 context 压缩）
+│  （每个 persona 独立子目录：同一台机器跑多个 agent 也不会互相覆盖）
 └──────────────────────────────────────────────────────────────────
 ```
 
@@ -223,15 +224,16 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 ## CLI
 
-**`scripts/setup.py`** —— 5 个命令:
+**`scripts/setup.py`** —— 6 个命令:
 
 | 命令 | 用途 |
 |------|------|
-| `status` | JSON 状态 dump（含 register lock） |
+| `status` | JSON 状态 dump（含 register lock、agent 命名空间、已知 agent 列表、legacy state 标记） |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | 写 visual anchor（不传 flag 就读 stdin） |
 | `save-reference --src PATH` | 收图作为参考（原子写、mode 644） |
 | `set-api --key K [--base-url U] [--models CSV]` | 持久化 API 配置（mode 600） |
 | `set-register-lock {--clear \| --until ISO --max R}` | 持久化 FORCE 通道 register 锁 |
+| `migrate-from-legacy --agent <slug> [--force] [--purge]` | 把老版 `~/.config/eidolon/` 根目录的状态复制进指定 agent 的子目录 |
 
 **`scripts/generate.py`** —— 7 个 flag:
 
@@ -247,7 +249,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 **没有 mood / register / safeword / context-time 这种 flag。** 这些概念都在 SKILL.md prose 里;agent 直接在 `--prompt` 里按灵感词汇库挑合适的语言写进去。
 
-详细子命令规格 + onboarding 状态机伪代码参见 [`docs/AGENT-PROTOCOL.md`](docs/AGENT-PROTOCOL.md)。
+详细子命令规格 + onboarding 状态机伪代码参见 [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md)。
 
 ---
 
@@ -257,7 +259,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 1. CLI flag
 2. 环境变量（老的 `EID0L0N_*` 还兼容）
-3. `~/.config/eidolon/env`（mode 600，由 `setup.py set-api` 写）
+3. `~/.config/eidolon/<agent>/env`（mode 600，由 `setup.py set-api` 写 —— `<agent>` 解析顺序：`$EIDOLON_AGENT` → 唯一已存在的 persona 子目录 → `default`；`EIDOLON_HOME` 直接覆盖整个目录）
 4. 默认值
 
 | 变量 | 必需 | 默认 |
@@ -265,7 +267,9 @@ agent **永远不会**复述你的强制词。激活是无声的。
 | `IMAGE_API_KEY` | ✓ | — |
 | `IMAGE_API_BASE_URL` |  | `https://openrouter.ai/api/v1` |
 | `IMAGE_API_MODELS` |  | `google/gemini-2.5-flash-image-preview, ...` |
-| `EIDOLON_VISUAL_ANCHOR` |  | `~/.config/eidolon/visual_anchor.md` |
+| `EIDOLON_AGENT` |  | 当前 session 的 persona slug（如 `aria`）；不设时自动选唯一存在的子目录，否则 `default` |
+| `EIDOLON_HOME` |  | 直接指向状态目录（覆盖 `EIDOLON_AGENT`） |
+| `EIDOLON_VISUAL_ANCHOR` |  | `~/.config/eidolon/$EIDOLON_AGENT/visual_anchor.md` |
 | `EIDOLON_REFERENCE` |  | （从 anchor 的 `reference:` 头解析） |
 | `EIDOLON_OUTPUT_DIR` |  | `~/Pictures/eidolon/`（或宿主 workspace 如果检测到） |
 
@@ -300,17 +304,16 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 ```
 SKILL.md                   ← agent 协议（agent 第一次调用时读）
-bin/install.sh             ← 跨宿主安装脚本
 scripts/
-  setup.py                 ← 5 个薄命令
+  setup.py                 ← 薄命令（status, save-anchor 等）
   generate.py              ← 图像生成;--prompt / --state / --bootstrap / 等
-references/
-  persona.example.md       ← 给没有 SOUL.md 的用户的工作示例
-templates/
-  config.example.json      ← 模型回退链模板（绝无 key）
-docs/
+  install.sh               ← 跨宿主安装脚本
+references/                ← 让 Claude/agent 按需加载的文档
   AGENT-PROTOCOL.md        ← CLI 参考 + onboarding 伪代码
   PERSONA-GUIDE.md         ← onboarding 完成后怎么打磨 visual_anchor.md
+assets/                    ← 输出会用到的模板和示例
+  persona.example.md       ← 给没有 SOUL.md 的用户的工作示例
+  config.example.json      ← 模型回退链模板（绝无 key）
 ```
 
 ---
@@ -358,7 +361,7 @@ uv run scripts/generate.py \
 - **重试 + 指数退避。** 每个 model 重试 3 次，遇到 408/429/5xx/超时按指数退避。不可恢复错误（auth、content policy 等）立即换下一个 model。
 - **CRLF 规范化** —— 每次读 Markdown 都先 normalize，Windows 编辑过的 anchor 不会因为路径里多个 `\r` 而坏掉。
 - **PIL 在生成时才 fail-fast，不在 import 时。** `--help` / `--doctor` / `--list-scenes` 没装 pillow 也能跑。
-- **锁活过 context 压缩。** FORCE 通道的 register 锁把 `{locked_until, max_register}` 写到 `~/.config/eidolon/preferences.json`，所以一段 60 分钟的 intimate session 不会因为 agent 上下文被对话中途总结而丢失。
+- **锁活过 context 压缩。** FORCE 通道的 register 锁把 `{locked_until, max_register}` 写到 `~/.config/eidolon/<agent>/preferences.json`，所以一段 60 分钟的 intimate session 不会因为 agent 上下文被对话中途总结而丢失。
 
 ---
 
@@ -366,7 +369,7 @@ uv run scripts/generate.py \
 
 欢迎 PR。两条**绝不妥协**的设计原则:
 
-1. **永远不让 secret 进仓库。** API key 只活在 `~/.config/eidolon/env`（mode 600），由用户在**自己的 shell** 里写。skill 显式拒绝从 chat 里收 key。
+1. **永远不让 secret 进仓库。** API key 只活在 `~/.config/eidolon/<agent>/env`（mode 600），由用户在**自己的 shell** 里写。skill 显式拒绝从 chat 里收 key。
 2. **代码只保证角色一致性。** 场景 / 动作 / 心情 / register / 光影 / 构图相关的语言都放进 SKILL.md prose 作为灵感词汇。Agent 写 prompt。如果一个 PR 加了 `--register` flag 或者把 register overlay 写死进 `generate.py`，我会直接 close。
 
 如果你想给 `SCENES` 加场景预设，写成**起点**（简洁、含 framing），不要写成模板。真正的价值在 SKILL.md 的灵感词汇里，不在代码侧的默认值里。

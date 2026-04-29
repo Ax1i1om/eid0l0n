@@ -2,10 +2,10 @@
 # EID0L0N (skill name: `eidolon`) — cross-host installer for OpenClaw and Hermes.
 #
 # Usage:
-#   bash bin/install.sh                  # auto-detect, install everywhere it can
-#   bash bin/install.sh --openclaw       # OpenClaw only
-#   bash bin/install.sh --hermes         # Hermes only
-#   bash bin/install.sh --skip-wizard    # don't auto-run setup.py at the end
+#   bash scripts/install.sh                  # auto-detect, install everywhere it can
+#   bash scripts/install.sh --openclaw       # OpenClaw only
+#   bash scripts/install.sh --hermes         # Hermes only
+#   bash scripts/install.sh --skip-wizard    # don't auto-run setup.py at the end
 #
 # Idempotent. Safe to re-run.
 
@@ -44,7 +44,7 @@ echo
 copy_bundle() {
   local dest="$1"
   mkdir -p "$dest"
-  for item in SKILL.md scripts references templates; do
+  for item in SKILL.md scripts references assets; do
     cp -R "$REPO_ROOT/$item" "$dest/"
   done
   echo "  $(c_ok "✓") copied skill bundle → $dest"

@@ -56,10 +56,76 @@ except ImportError:
     _PIL_OK = False
 
 SKILL_DIR    = Path(__file__).resolve().parent.parent
-CONFIG_DIR   = Path.home() / ".config" / "eidolon"
+HOME         = Path.home()
+CONFIG_ROOT  = HOME / ".config" / "eidolon"
+LEGACY_CONFIG_DIR = CONFIG_ROOT  # pre-namespacing layout; surfaced via status for migration
+
+
+def _slugify_agent(name: str) -> str:
+    """Lowercase, [a-z0-9_]-only slug. Empty string for empty/garbage input."""
+    import re as _re
+    s = _re.sub(r"[^a-zA-Z0-9]+", "_", (name or "").strip().lower()).strip("_")
+    return s
+
+
+def _detect_agent_from_existing_anchors() -> str:
+    """If exactly one persona dir under CONFIG_ROOT already has an anchor, use
+    that. Lets a single-agent user keep working without ever setting an env
+    var. Returns '' if zero or 2+ candidates exist."""
+    if not CONFIG_ROOT.exists():
+        return ""
+    found = []
+    for child in CONFIG_ROOT.iterdir():
+        if child.is_dir() and (child / "visual_anchor.md").exists():
+            found.append(child.name)
+    return found[0] if len(found) == 1 else ""
+
+
+def _detect_agent() -> str:
+    """Resolve the active agent persona slug.
+
+    Priority:
+      1. ``$EIDOLON_AGENT`` — explicit selection (recommended for multi-agent users)
+      2. Single existing persona dir under ``~/.config/eidolon/`` — auto-pick
+      3. ``default`` — bootstrap slot until ``save-anchor --name`` rewrites it
+
+    Host-software detection (openclaw/hermes/...) is intentionally NOT used:
+    one host can run many agents (AXIIIOM and 1SHTAR side-by-side under the
+    same OpenClaw install), so the namespace must follow the persona, not the
+    host binary.
+    """
+    explicit = _slugify_agent(os.environ.get("EIDOLON_AGENT", ""))
+    if explicit:
+        return explicit
+    auto = _detect_agent_from_existing_anchors()
+    return auto or "default"
+
+
+def _resolve_config_dir() -> Path:
+    override = os.environ.get("EIDOLON_HOME")
+    if override:
+        return Path(override).expanduser()
+    return CONFIG_ROOT / _detect_agent()
+
+
+AGENT_NAMESPACE = _detect_agent()
+CONFIG_DIR   = _resolve_config_dir()
 ANCHOR_PATH  = CONFIG_DIR / "visual_anchor.md"
 ENV_PATH     = CONFIG_DIR / "env"
 PREFS_PATH   = CONFIG_DIR / "preferences.json"
+
+
+def legacy_state_present() -> bool:
+    """True iff a persona file is sitting in the flat pre-namespacing root.
+    Independent of the current agent namespace — the legacy data belongs to
+    *some* persona that the user must explicitly assign via
+    ``migrate-from-legacy --agent <slug>``."""
+    try:
+        if CONFIG_DIR.resolve() == LEGACY_CONFIG_DIR.resolve():
+            return False
+    except OSError:
+        return False
+    return (LEGACY_CONFIG_DIR / "visual_anchor.md").exists()
 
 # Codex CLI auth (shared with the user's existing `codex login`)
 CODEX_AUTH_PATH = Path.home() / ".codex" / "auth.json"
@@ -128,7 +194,7 @@ def resolve_anchor_path(cli: str | None) -> Path:
         os.environ.get("EIDOLON_VISUAL_ANCHOR"),
         os.environ.get("EID0L0N_VISUAL_ANCHOR"),
         str(ANCHOR_PATH),
-        str(SKILL_DIR / "references" / "persona.example.md"),
+        str(SKILL_DIR / "assets" / "persona.example.md"),
     ]
     for c in candidates:
         if c and Path(c).expanduser().exists():

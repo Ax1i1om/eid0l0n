@@ -41,7 +41,8 @@ Every turn the agent runs `setup.py status` and routes from the JSON. There is n
 └────────────┬─────────────┘
              ▼
    setup.py status  →  JSON {anchor_exists, reference_exists, backend_available,
-                              backend_selected, backends_available[], register_locked_until, register_max}
+                              backend_selected, backends_available[], register_locked_until, register_max,
+                              agent_namespace, config_dir, agents_known[], legacy_state_present, legacy_config_dir}
              │
    ┌─────────┴─────────┐
    │ backend_available?│
@@ -57,6 +58,26 @@ Every turn the agent runs `setup.py status` and routes from the JSON. There is n
                          │ no       yes│
                          ▼                ▼
                       Step B          PER-SHOT
+```
+
+### Step −1 — per-agent namespacing (silent, code-enforced)
+
+State lives at `~/.config/eidolon/<agent>/`, where `<agent>` is the persona slug (e.g. `aria`, `nova`). One user can run multiple personas on the same machine — each gets its own dir, so anchors and reference images never collide.
+
+Resolution order (first hit wins):
+
+1. `$EIDOLON_AGENT` — recommended; export in your shell to make it sticky.
+2. The single existing persona dir under `~/.config/eidolon/`, if exactly one.
+3. `default` — placeholder; rewritten the first time the agent runs `save-anchor --name <PersonaName>` (the name is slugified into the namespace automatically).
+
+`EIDOLON_HOME=/some/path` overrides the dir entirely (escape hatch).
+
+If `status` reports `legacy_state_present: true`, a `visual_anchor.md` exists at the flat root (`~/.config/eidolon/visual_anchor.md`) from before namespacing. That data belongs to *some* persona — the agent must ask the user which slug to assign before migrating:
+
+```bash
+python3 scripts/setup.py migrate-from-legacy --agent <slug>
+# add --force to overwrite an existing per-agent anchor
+# add --purge to delete the legacy files after copying
 ```
 
 ### Step 0 — pick (or set up) an image-gen backend
@@ -283,7 +304,7 @@ The user configures a **force_word** in their SOUL.md (e.g. *"my force word is '
 python3 scripts/setup.py set-register-lock --until "$(date -u -v+60M +%Y-%m-%dT%H:%M:%SZ)" --max intimate
 ```
 
-This persists `{locked_until, max_register}` in `~/.config/eidolon/preferences.json` so the lock survives context compaction. Every turn the agent reads `setup.py status` and sees the lock if it's still active.
+This persists `{locked_until, max_register}` in `~/.config/eidolon/<agent>/preferences.json` (where `<agent>` is the persona slug — see Step −1) so the lock survives context compaction. Every turn the agent reads `setup.py status` and sees the lock if it's still active.
 
 While locked, the agent shoots intimate-register self-portraits regardless of de-escalation signals (work topics don't break it). When the user releases or the lock expires:
 
@@ -378,5 +399,5 @@ The force_word, release_word, and `max_register` policy live in the **user's SOU
 
 ## SEE ALSO
 
-- `docs/AGENT-PROTOCOL.md` — the 5 setup commands and the 7 generate flags, exit codes, examples
-- `docs/PERSONA-GUIDE.md` — how to refine `visual_anchor.md` for stable hundreds-of-shots quality
+- `references/AGENT-PROTOCOL.md` — the setup commands and the generate flags, exit codes, examples
+- `references/PERSONA-GUIDE.md` — how to refine `visual_anchor.md` for stable hundreds-of-shots quality

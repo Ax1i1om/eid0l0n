@@ -1,5 +1,5 @@
-# Secrets — NEVER commit. The wizard writes ~/.config/eid0l0n/env (mode 600);
-# this glob covers anyone who copies it into the repo by mistake.
+# Secrets — NEVER commit. The wizard writes ~/.config/eidolon/<agent>/env
+# (mode 600); this glob covers anyone who copies it into the repo by mistake.
 .env
 .env.*
 !.env.example
@@ -7,8 +7,8 @@ env
 config.local.json
 secrets.json
 
-# A real persona / visual anchor belongs at ~/.config/eid0l0n/, not in the repo.
-# The shipped example is references/persona.example.md and IS committed.
+# A real persona / visual anchor belongs at ~/.config/eidolon/<agent>/, not in
+# the repo. The shipped example is references/persona.example.md and IS committed.
 persona.md
 visual_anchor.md
 /persona.md

@@ -34,7 +34,7 @@ What that buys you:
 # 1. Clone + install (places skill files; no terminal wizard runs)
 git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
-bash bin/install.sh
+bash scripts/install.sh
 
 # 2. Make sure ONE image-gen backend is reachable. Any one of:
 #    • codex      — run `codex login` once (FREE for ChatGPT Plus/Pro/Team)
@@ -176,17 +176,18 @@ You can tilt how proactive the agent is by adding **one line** to your SOUL.md:
                                                                   │
 ┌─────────────────────────────────────────────────────────────────┘
 │  EID0L0N SKILL  (this repo)
-│  setup.py — 5 thin commands
+│  setup.py — 6 thin commands
 │  generate.py — image generation; only enforces character anchor + reference image
 │  SKILL.md — the agent's directorial handbook (mental scaffolds, no forced templates)
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG  (~/.config/eidolon/, mode 600)
+│  CONFIG  (~/.config/eidolon/<agent>/, mode 600 — <agent> is your persona slug)
 │  visual_anchor.md — character description (written once by agent from its SOUL)
 │  reference.png    — canonical reference image (saved or generated + approved)
 │  env              — IMAGE_API_KEY, mode 600
 │  preferences.json — register lock state (survives context compaction)
+│  (one dir per persona — multiple agents on one machine never collide)
 └──────────────────────────────────────────────────────────────────
 ```
 
@@ -225,15 +226,16 @@ For the full design, including how the script provides only inspiration phrases 
 
 ## CLI
 
-**`scripts/setup.py`** — 5 commands:
+**`scripts/setup.py`** — 6 commands:
 
 | Command | Purpose |
 |---------|---------|
-| `status` | JSON state dump (incl. register lock) |
+| `status` | JSON state dump (incl. register lock, host namespace, legacy-state flag) |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | Write visual anchor (stdin if no flag) |
 | `save-reference --src PATH` | Adopt an image (atomic, mode 644) |
 | `set-api --key K [--base-url U] [--models CSV]` | Persist API config (mode 600) |
 | `set-register-lock {--clear \| --until ISO --max R}` | Persist FORCE-channel register lock |
+| `migrate-from-legacy --agent <slug> [--force] [--purge]` | Copy state from legacy `~/.config/eidolon/` into the named per-agent dir |
 
 **`scripts/generate.py`** — 7 flags:
 
@@ -249,7 +251,7 @@ For the full design, including how the script provides only inspiration phrases 
 
 **No mood / register / safeword / context-time CLI flags.** Those live in SKILL.md prose; the agent embeds appropriate language directly in `--prompt` per the inspiration vocabularies.
 
-See [`docs/AGENT-PROTOCOL.md`](docs/AGENT-PROTOCOL.md) for the full subcommand contract and onboarding pseudocode.
+See [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) for the full subcommand contract and onboarding pseudocode.
 
 ---
 
@@ -259,7 +261,7 @@ Resolution order (first hit wins):
 
 1. CLI flags
 2. Environment variables (legacy `EID0L0N_*` honored)
-3. `~/.config/eidolon/env` (mode 600, written by `setup.py set-api`)
+3. `~/.config/eidolon/<agent>/env` (mode 600, written by `setup.py set-api` — `<agent>` resolves to `$EIDOLON_AGENT`, else the only existing persona dir, else `default`; `EIDOLON_HOME` overrides the dir entirely)
 4. Sensible defaults
 
 | Variable | Required | Default |
@@ -267,7 +269,9 @@ Resolution order (first hit wins):
 | `IMAGE_API_KEY` | ✓ | — |
 | `IMAGE_API_BASE_URL` |  | `https://openrouter.ai/api/v1` |
 | `IMAGE_API_MODELS` |  | `google/gemini-2.5-flash-image-preview, ...` |
-| `EIDOLON_VISUAL_ANCHOR` |  | `~/.config/eidolon/visual_anchor.md` |
+| `EIDOLON_AGENT` |  | persona slug for the active session (e.g. `aria`); auto-picks the only existing dir, else `default` |
+| `EIDOLON_HOME` |  | full state-dir override; if set, ignores `EIDOLON_AGENT` |
+| `EIDOLON_VISUAL_ANCHOR` |  | `~/.config/eidolon/$EIDOLON_AGENT/visual_anchor.md` |
 | `EIDOLON_REFERENCE` |  | (resolved from anchor's `reference:` header) |
 | `EIDOLON_OUTPUT_DIR` |  | `~/Pictures/eidolon/` (or host workspace if detected) |
 
@@ -302,17 +306,16 @@ The "EID" stays pure (the soul). The "0L0N" is electrified (the form). One word 
 
 ```
 SKILL.md                   ← agent protocol (read on first invocation)
-bin/install.sh             ← cross-host installer
 scripts/
-  setup.py                 ← 5 thin commands
+  setup.py                 ← thin commands (status, save-anchor, etc.)
   generate.py              ← image generation; --prompt / --state / --bootstrap / etc.
-references/
-  persona.example.md       ← worked example for users without a SOUL.md
-templates/
-  config.example.json      ← model-chain template (no keys, ever)
-docs/
+  install.sh               ← cross-host installer
+references/                ← docs Claude/agent loads on demand
   AGENT-PROTOCOL.md        ← CLI reference + onboarding pseudocode
   PERSONA-GUIDE.md         ← how to refine visual_anchor.md after onboarding
+assets/                    ← templates and example files used in output
+  persona.example.md       ← worked example for users without a SOUL.md
+  config.example.json      ← model-chain template (no keys, ever)
 ```
 
 ---
@@ -360,7 +363,7 @@ The script never delivers — only the agent does.
 - **Retry with backoff.** 3 attempts per model with exponential backoff on 408/429/5xx/timeout. Non-retryable errors advance to the next model in the chain.
 - **CRLF normalization** at every Markdown read — Windows-edited anchors don't break path parsing.
 - **PIL fail-fast at generation time, not at import.** `--help` / `--doctor` / `--list-scenes` work without pillow installed.
-- **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `~/.config/eidolon/preferences.json` so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
+- **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `~/.config/eidolon/<agent>/preferences.json` so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
 
 ---
 
@@ -368,7 +371,7 @@ The script never delivers — only the agent does.
 
 PRs welcome. Two design rules I won't compromise on:
 
-1. **No secrets in the repo, ever.** API key lives only in `~/.config/eidolon/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
+1. **No secrets in the repo, ever.** API key lives only in `~/.config/eidolon/<agent>/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
 2. **Code only enforces character consistency.** Scene / action / mood / register / lighting / composition language goes in SKILL.md prose as inspiration. The agent writes the prompt. If a PR adds a `--register` flag or hardcodes register overlays into `generate.py`, I'll close it.
 
 If you want to contribute scene presets to `SCENES`, write them as starting points (terse, framing-aware), not as templates. Real value is in the SKILL.md vocabularies, not in code-side defaults.
