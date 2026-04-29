@@ -17,13 +17,23 @@ EID0L0N (skill name: `eidolon`) — setup toolkit.
 from __future__ import annotations
 
 import argparse
-import fcntl
 import json
 import os
 import re
 import shutil
 import sys
 from contextlib import contextmanager
+
+# fcntl is POSIX-only. On Windows we degrade to no-op locking — the skill is
+# designed for one agent at a time per workspace, so concurrent writers from a
+# single host are extremely rare. If you need real Windows locking, install
+# portalocker and patch _file_lock.
+try:
+    import fcntl  # type: ignore
+    _HAS_FCNTL = True
+except ImportError:
+    fcntl = None  # type: ignore
+    _HAS_FCNTL = False
 from pathlib import Path
 
 # Share the backend registry and the cwd-derived state dir with generate.py.
@@ -63,11 +73,15 @@ def _file_lock():
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     fp = open(LOCK_PATH, "w")
     try:
-        fcntl.flock(fp, fcntl.LOCK_EX)
+        if _HAS_FCNTL:
+            fcntl.flock(fp, fcntl.LOCK_EX)
         yield
     finally:
-        try: fcntl.flock(fp, fcntl.LOCK_UN)
-        finally: fp.close()
+        try:
+            if _HAS_FCNTL:
+                fcntl.flock(fp, fcntl.LOCK_UN)
+        finally:
+            fp.close()
 
 
 def _read_text_normalized(path: Path) -> str:
@@ -319,7 +333,8 @@ def cmd_migrate_from_legacy(args) -> int:
     file_names = ["visual_anchor.md", "preferences.json", "env"] + [f"reference.{e}" for e in ("jpg","jpeg","png","webp")]
     lock_fp = open(target / ".lock", "w")
     try:
-        fcntl.flock(lock_fp, fcntl.LOCK_EX)
+        if _HAS_FCNTL:
+            fcntl.flock(lock_fp, fcntl.LOCK_EX)
         for name in file_names:
             src = source / name
             if not src.exists() or src.is_dir():
@@ -354,7 +369,8 @@ def cmd_migrate_from_legacy(args) -> int:
                     anchor.write_text(text)
                 break
     finally:
-        fcntl.flock(lock_fp, fcntl.LOCK_UN)
+        if _HAS_FCNTL:
+            fcntl.flock(lock_fp, fcntl.LOCK_UN)
         lock_fp.close()
 
     print(json.dumps({
