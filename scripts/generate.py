@@ -57,75 +57,55 @@ except ImportError:
 
 SKILL_DIR    = Path(__file__).resolve().parent.parent
 HOME         = Path.home()
-CONFIG_ROOT  = HOME / ".config" / "eidolon"
-LEGACY_CONFIG_DIR = CONFIG_ROOT  # pre-namespacing layout; surfaced via status for migration
+LEGACY_CONFIG_DIR = HOME / ".config" / "eidolon"  # pre-cwd-design path; flagged for migration
 
 
-def _slugify_agent(name: str) -> str:
-    """Lowercase, [a-z0-9_]-only slug. Empty string for empty/garbage input."""
-    import re as _re
-    s = _re.sub(r"[^a-zA-Z0-9]+", "_", (name or "").strip().lower()).strip("_")
-    return s
+def _resolve_state_dir() -> Path:
+    """State lives at ``<workspace>/eidolon/`` where ``<workspace>`` is the
+    current working directory.
 
+    OpenClaw and Hermes both document that ``cwd == active workspace`` when a
+    skill is invoked (OpenClaw: "the only working directory used for file
+    tools and for workspace context"; Hermes: writes "relative to the active
+    workspace/backend working directory"). We trust that contract.
 
-def _detect_agent_from_existing_anchors() -> str:
-    """If exactly one persona dir under CONFIG_ROOT already has an anchor, use
-    that. Lets a single-agent user keep working without ever setting an env
-    var. Returns '' if zero or 2+ candidates exist."""
-    if not CONFIG_ROOT.exists():
-        return ""
-    found = []
-    for child in CONFIG_ROOT.iterdir():
-        if child.is_dir() and (child / "visual_anchor.md").exists():
-            found.append(child.name)
-    return found[0] if len(found) == 1 else ""
-
-
-def _detect_agent() -> str:
-    """Resolve the active agent persona slug.
-
-    Priority:
-      1. ``$EIDOLON_AGENT`` — explicit selection (recommended for multi-agent users)
-      2. Single existing persona dir under ``~/.config/eidolon/`` — auto-pick
-      3. ``default`` — bootstrap slot until ``save-anchor --name`` rewrites it
-
-    Host-software detection (openclaw/hermes/...) is intentionally NOT used:
-    one host can run many agents (AXIIIOM and 1SHTAR side-by-side under the
-    same OpenClaw install), so the namespace must follow the persona, not the
-    host binary.
+    ``$EIDOLON_HOME`` overrides for dev/test use. Running from inside the
+    skill source repo is refused — point the user at ``$EIDOLON_HOME`` so
+    state cannot pollute the source tree.
     """
-    explicit = _slugify_agent(os.environ.get("EIDOLON_AGENT", ""))
-    if explicit:
-        return explicit
-    auto = _detect_agent_from_existing_anchors()
-    return auto or "default"
-
-
-def _resolve_config_dir() -> Path:
     override = os.environ.get("EIDOLON_HOME")
     if override:
-        return Path(override).expanduser()
-    return CONFIG_ROOT / _detect_agent()
+        return Path(override).expanduser().resolve()
+    try:
+        cwd = Path(os.getcwd())
+    except (FileNotFoundError, OSError):
+        sys.exit("error: cwd is gone. Set EIDOLON_HOME=<path> to a writable dir.")
+    # Refuse to write inside the skill's own source repo.
+    if (cwd / ".git").exists() and (cwd / "SKILL.md").exists() and (cwd / "scripts").is_dir():
+        sys.exit(
+            "error: cwd looks like the eidolon source repo. Refusing to write state here.\n"
+            "Run from your host workspace, or set EIDOLON_HOME=<path>."
+        )
+    return cwd / "eidolon"
 
 
-AGENT_NAMESPACE = _detect_agent()
-CONFIG_DIR   = _resolve_config_dir()
+CONFIG_DIR   = _resolve_state_dir()
 ANCHOR_PATH  = CONFIG_DIR / "visual_anchor.md"
 ENV_PATH     = CONFIG_DIR / "env"
 PREFS_PATH   = CONFIG_DIR / "preferences.json"
 
 
 def legacy_state_present() -> bool:
-    """True iff a persona file is sitting in the flat pre-namespacing root.
-    Independent of the current agent namespace — the legacy data belongs to
-    *some* persona that the user must explicitly assign via
-    ``migrate-from-legacy --agent <slug>``."""
-    try:
-        if CONFIG_DIR.resolve() == LEGACY_CONFIG_DIR.resolve():
-            return False
-    except OSError:
+    """True iff persona files sit in the legacy ``~/.config/eidolon/`` tree
+    (flat root or any subdir). Independent of the current state dir."""
+    if not LEGACY_CONFIG_DIR.exists():
         return False
-    return (LEGACY_CONFIG_DIR / "visual_anchor.md").exists()
+    if (LEGACY_CONFIG_DIR / "visual_anchor.md").exists():
+        return True
+    for child in LEGACY_CONFIG_DIR.iterdir():
+        if child.is_dir() and (child / "visual_anchor.md").exists():
+            return True
+    return False
 
 # Codex CLI auth (shared with the user's existing `codex login`)
 CODEX_AUTH_PATH = Path.home() / ".codex" / "auth.json"
