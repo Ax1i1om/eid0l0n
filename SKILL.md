@@ -1,8 +1,19 @@
 ---
 name: eidolon
-description: "Generate one image of a recurring character (the host agent itself, or a named persona). The skill enforces character consistency only — same face, same identifying details, every time — by anchoring each call to a saved persona description and reference image. Everything else (scene, action, lighting, mood, register, intimacy, composition) is the agent's job: it writes the full prompt. Auto-detects the user's existing image-gen capability across 6 providers (Codex/ChatGPT OAuth, Gemini, OpenAI, fal.ai, Replicate, OpenRouter) — no extra API key needed if any of them is already set up. On first use, the agent reads its own SOUL.md from its system prompt, asks the user about a reference image, and generates one for approval if needed."
-license: MIT
-allowed-tools: Bash(uv:*) Bash(python3:*) Bash(openclaw:*) Bash(codex:*) Bash(cat:*) Read Write
+description: Generate one self-portrait or persona image of the active agent with locked character consistency. Use whenever the agent should appear as itself, attach a face, or send a mood/scene shot.
+version: 0.6.0
+metadata:
+  hermes:
+    tags: [image-generation, persona, self-portrait, character-consistency]
+    category: creative
+    requires_toolsets: [terminal]
+  openclaw:
+    requires:
+      bins: [python3]
+      env: [OPENAI_API_KEY, GEMINI_API_KEY, FAL_KEY, REPLICATE_API_TOKEN, IMAGE_API_KEY]
+    primaryEnv: IMAGE_API_KEY
+    emoji: 🪞
+    homepage: https://github.com/Ax1i1om/eid0l0n
 ---
 
 # EID0L0N
