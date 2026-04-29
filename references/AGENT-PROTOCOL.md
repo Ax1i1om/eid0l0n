@@ -2,7 +2,7 @@
 
 eidolon exposes **7 setup commands** and 1 generation script. Mood / register / lock / decay logic is **not** in the CLI as a state machine — the agent tracks AUTO-channel transitions in its own context window per SKILL.md prose. The one exception is the FORCE-channel register lock, which is persisted to `preferences.json` so it survives context compaction (see `set-register-lock`). Code only enforces character consistency.
 
-State lives at `~/.config/eidolon/<agent>/`, namespaced by the persona slug — not by host software — so one user can run multiple personas on the same machine without collisions. Resolution order: `$EIDOLON_AGENT` → the only existing persona dir → `default`. `EIDOLON_HOME=/some/path` overrides the dir entirely. Run `setup.py migrate-from-legacy --agent <slug>` to bring forward state written before namespacing existed.
+State lives at `<workspace>/eidolon/`, where `<workspace>` is the host's current working directory. OpenClaw and Hermes both invoke skills with `cwd = active workspace` — we trust that contract instead of inferring host or persona. Switching workspace = switching state, automatically. `EIDOLON_HOME=/some/path` overrides the dir entirely (dev/test escape hatch). Run `setup.py migrate-from-legacy [--from <subdir>]` to bring forward state from the legacy `~/.config/eidolon/` tree.
 
 ## Backend auto-detection
 
@@ -75,15 +75,14 @@ Read-only state dump. Returns:
   "backends_available": ["codex"],
   "backend_selected": "codex",
   "backend_forced": false,
-  "agent_namespace": "aria",
-  "config_dir": "/Users/<user>/.config/eidolon/aria",
-  "agents_known": ["aria", "nova"],
+  "state_dir": "/path/to/workspace/eidolon",
+  "workspace_cwd": "/path/to/workspace",
   "legacy_state_present": false,
   "legacy_config_dir": ""
 }
 ```
 
-Run this **first** every turn. Route from the JSON. Note: `api_key_set` is now informational only (it tracks the legacy `IMAGE_API_KEY`); the agent should branch on `backend_available` instead. If `legacy_state_present` is `true`, a `visual_anchor.md` exists at the flat `~/.config/eidolon/` root from before namespacing — that data belongs to *some* persona; ask the user which slug it represents, then call `migrate-from-legacy --agent <slug>`.
+Run this **first** every turn. Route from the JSON. Note: `api_key_set` is now informational only (it tracks the legacy `IMAGE_API_KEY`); the agent should branch on `backend_available` instead. If `legacy_state_present` is `true`, persona files exist under the legacy `~/.config/eidolon/` tree — call `migrate-from-legacy [--from <subdir>]` to bring them forward into the current workspace's state dir.
 
 ## `setup.py detect-backends [--json]`
 
@@ -108,7 +107,7 @@ python3 scripts/setup.py detect-backends --json
 
 ## `setup.py save-anchor [--text TEXT | --from-file FILE] [--name NAME]`
 
-Writes `~/.config/eidolon/<agent>/visual_anchor.md` from agent-supplied text. The persona slug `<agent>` comes from `$EIDOLON_AGENT`, or — if `--name <PersonaName>` is passed here — is auto-derived by slugifying the name (e.g. `--name "Aria Voss"` → `aria_voss/`). Set `EIDOLON_HOME` to override the dir entirely. Three input modes:
+Writes `<workspace>/eidolon/visual_anchor.md` from agent-supplied text. State dir = `<cwd>/eidolon/`; set `EIDOLON_HOME` to override. Three input modes:
 
 ```bash
 # Recommended (avoids heredoc-EOF collision with embedded "EOF" markers in SOUL text):
@@ -134,13 +133,13 @@ The original SOUL.md is **never** modified by this skill.
 
 ## `setup.py save-reference --src PATH`
 
-Atomically (tmp + replace) copies an image to `~/.config/eidolon/<agent>/reference.<ext>` (mode 644). Validates `.png|.jpg|.jpeg|.webp`. Updates the `reference:` header in `visual_anchor.md`. Use both for user-provided paths AND for promoting an approved candidate.
+Atomically (tmp + replace) copies an image to `<workspace>/eidolon/reference.<ext>` (mode 644). Validates `.png|.jpg|.jpeg|.webp`. Updates the `reference:` header in `visual_anchor.md`. Use both for user-provided paths AND for promoting an approved candidate.
 
 ---
 
 ## `setup.py set-api --key KEY [--base-url URL] [--models CSV]`
 
-Writes `~/.config/eidolon/<agent>/env` (mode 600) for the **`openrouter`** backend specifically. Other backends use shell env vars (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`) or no key at all (`codex` reads `~/.codex/auth.json`).
+Writes `<workspace>/eidolon/env` (mode 600) for the **`openrouter`** backend specifically. Other backends use shell env vars (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`) or no key at all (`codex` reads `~/.codex/auth.json`).
 
 **Run this in the user's own shell, not via an agent that received the key in chat.** That path leaks the key into chat logs + model context + disk.
 
@@ -150,7 +149,7 @@ If any other backend is reachable (e.g. `codex login` already done, or `GEMINI_A
 
 ## `setup.py set-register-lock {--clear | --until ISO --max R}`
 
-Persists FORCE-channel register lock to `~/.config/eidolon/<agent>/preferences.json` (mode 600). Schema:
+Persists FORCE-channel register lock to `<workspace>/eidolon/preferences.json` (mode 600). Schema:
 
 ```json
 {
@@ -181,26 +180,26 @@ The user's `max_register` policy (`tender` / `intimate` cap) and force/release w
 
 ---
 
-## `setup.py migrate-from-legacy [--force] [--purge]`
+## `setup.py migrate-from-legacy [--from <subdir>] [--force] [--purge]`
 
-Copies persona state from the pre-namespacing root (`~/.config/eidolon/`) into a per-agent dir. The caller **must** pass `--agent <slug>` because the flat root holds at most one persona's data and only the user knows whose. Used once per persona the first time `status` reports `legacy_state_present: true`.
+Copies persona state from the legacy `~/.config/eidolon/` tree (flat root or any subdir) into the current workspace's state dir (`<cwd>/eidolon/`). Used once per workspace the first time `status` reports `legacy_state_present: true`.
+
+If the legacy root has `visual_anchor.md` directly, it migrates that. Otherwise it auto-picks if exactly one subdir contains an anchor; if multiple subdirs do, pass `--from <subdir>` to choose.
 
 ```bash
-python3 scripts/setup.py migrate-from-legacy --agent aria
+python3 scripts/setup.py migrate-from-legacy
 # {
 #   "from":  "/Users/<user>/.config/eidolon",
-#   "to":    "/Users/<user>/.config/eidolon/aria",
-#   "agent": "aria",
+#   "to":    "/path/to/workspace/eidolon",
 #   "copied":  ["visual_anchor.md", "reference.jpeg", "preferences.json", "env"],
 #   "skipped": [],
-#   "purged_legacy": false,
-#   "next":  "export EIDOLON_AGENT=aria in your shell so future invocations resolve to this dir without --agent."
+#   "purged_legacy": false
 # }
 ```
 
-Non-destructive by default: legacy files stay in place, and any pre-existing per-agent file is skipped. `--force` overwrites; `--purge` deletes the legacy originals after a successful copy. The anchor's `reference:` header is rewritten to the new per-agent reference path.
+Non-destructive by default: legacy files stay in place, and any pre-existing target file is skipped. `--force` overwrites; `--purge` deletes the legacy originals after a successful copy. The anchor's `reference:` header is rewritten to the new path.
 
-Refuses to run if the target dir equals the legacy root (i.e. `EIDOLON_HOME=~/.config/eidolon` while migrating to it) — there is nothing to migrate.
+Refuses to run if the target dir equals the legacy root.
 
 ---
 

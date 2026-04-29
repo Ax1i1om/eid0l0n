@@ -22,7 +22,7 @@ What that buys you:
 
 - **Conversational continuity.** A late-night warm message → tender register, soft amber. A debugging session → focused, screen-glow. A walk home → wide shot, head turned. The model reads the room.
 - **One persona, a thousand frames.** Same hair, same eyes, same identifiers — across radically different scenes, lighting, and emotional registers.
-- **No knobs to learn.** The CLI has 6 setup commands and 9 generate flags. That's the whole API. The intelligence lives in the prompt the agent writes, not in flags you twiddle.
+- **No knobs to learn.** The CLI has 7 setup commands and 9 generate flags. That's the whole API. The intelligence lives in the prompt the agent writes, not in flags you twiddle.
 
 - **Use the image-gen you already have.** eid0l0n auto-detects across 6 providers (Codex/ChatGPT OAuth, Gemini, OpenAI, fal.ai, Replicate, OpenRouter). If you've already run `codex login` (FREE for ChatGPT Plus/Pro/Team), there's nothing else to configure.
 
@@ -176,13 +176,13 @@ You can tilt how proactive the agent is by adding **one line** to your SOUL.md:
                                                                   │
 ┌─────────────────────────────────────────────────────────────────┘
 │  EID0L0N SKILL  (this repo)
-│  setup.py — 6 thin commands
+│  setup.py — 7 thin commands
 │  generate.py — image generation; only enforces character anchor + reference image
 │  SKILL.md — the agent's directorial handbook (mental scaffolds, no forced templates)
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG  (~/.config/eidolon/<agent>/, mode 600 — <agent> is your persona slug)
+│  CONFIG  (<workspace>/eidolon/, mode 600 — <workspace> = host's cwd)
 │  visual_anchor.md — character description (written once by agent from its SOUL)
 │  reference.png    — canonical reference image (saved or generated + approved)
 │  env              — IMAGE_API_KEY, mode 600
@@ -226,7 +226,7 @@ For the full design, including how the script provides only inspiration phrases 
 
 ## CLI
 
-**`scripts/setup.py`** — 6 commands:
+**`scripts/setup.py`** — 7 commands:
 
 | Command | Purpose |
 |---------|---------|
@@ -235,7 +235,7 @@ For the full design, including how the script provides only inspiration phrases 
 | `save-reference --src PATH` | Adopt an image (atomic, mode 644) |
 | `set-api --key K [--base-url U] [--models CSV]` | Persist API config (mode 600) |
 | `set-register-lock {--clear \| --until ISO --max R}` | Persist FORCE-channel register lock |
-| `migrate-from-legacy --agent <slug> [--force] [--purge]` | Copy state from legacy `~/.config/eidolon/` into the named per-agent dir |
+| `migrate-from-legacy [--from <subdir>] [--force] [--purge]` | Copy state from legacy `~/.config/eidolon/` (or one of its subdirs) into `<cwd>/eidolon/` |
 
 **`scripts/generate.py`** — 7 flags:
 
@@ -261,7 +261,7 @@ Resolution order (first hit wins):
 
 1. CLI flags
 2. Environment variables (legacy `EID0L0N_*` honored)
-3. `~/.config/eidolon/<agent>/env` (mode 600, written by `setup.py set-api` — `<agent>` resolves to `$EIDOLON_AGENT`, else the only existing persona dir, else `default`; `EIDOLON_HOME` overrides the dir entirely)
+3. `<workspace>/eidolon/env` (mode 600, written by `setup.py set-api` — `<workspace>` is the host's current working directory, OpenClaw + Hermes contract; `EIDOLON_HOME` overrides the dir entirely)
 4. Sensible defaults
 
 | Variable | Required | Default |
@@ -269,9 +269,8 @@ Resolution order (first hit wins):
 | `IMAGE_API_KEY` | ✓ | — |
 | `IMAGE_API_BASE_URL` |  | `https://openrouter.ai/api/v1` |
 | `IMAGE_API_MODELS` |  | `google/gemini-2.5-flash-image-preview, ...` |
-| `EIDOLON_AGENT` |  | persona slug for the active session (e.g. `aria`); auto-picks the only existing dir, else `default` |
-| `EIDOLON_HOME` |  | full state-dir override; if set, ignores `EIDOLON_AGENT` |
-| `EIDOLON_VISUAL_ANCHOR` |  | `~/.config/eidolon/$EIDOLON_AGENT/visual_anchor.md` |
+| `EIDOLON_HOME` |  | full state-dir override (dev/test escape hatch); default is `<cwd>/eidolon` |
+| `EIDOLON_VISUAL_ANCHOR` |  | `<state-dir>/visual_anchor.md` |
 | `EIDOLON_REFERENCE` |  | (resolved from anchor's `reference:` header) |
 | `EIDOLON_OUTPUT_DIR` |  | `~/Pictures/eidolon/` (or host workspace if detected) |
 
@@ -363,7 +362,7 @@ The script never delivers — only the agent does.
 - **Retry with backoff.** 3 attempts per model with exponential backoff on 408/429/5xx/timeout. Non-retryable errors advance to the next model in the chain.
 - **CRLF normalization** at every Markdown read — Windows-edited anchors don't break path parsing.
 - **PIL fail-fast at generation time, not at import.** `--help` / `--doctor` / `--list-scenes` work without pillow installed.
-- **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `~/.config/eidolon/<agent>/preferences.json` so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
+- **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `<workspace>/eidolon/preferences.json` so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
 
 ---
 
@@ -371,7 +370,7 @@ The script never delivers — only the agent does.
 
 PRs welcome. Two design rules I won't compromise on:
 
-1. **No secrets in the repo, ever.** API key lives only in `~/.config/eidolon/<agent>/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
+1. **No secrets in the repo, ever.** API key lives only in `<workspace>/eidolon/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
 2. **Code only enforces character consistency.** Scene / action / mood / register / lighting / composition language goes in SKILL.md prose as inspiration. The agent writes the prompt. If a PR adds a `--register` flag or hardcodes register overlays into `generate.py`, I'll close it.
 
 If you want to contribute scene presets to `SCENES`, write them as starting points (terse, framing-aware), not as templates. Real value is in the SKILL.md vocabularies, not in code-side defaults.
