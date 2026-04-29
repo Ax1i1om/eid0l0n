@@ -235,7 +235,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 | `set-register-lock {--clear \| --until ISO --max R}` | 持久化 FORCE 通道 register 锁 |
 | `migrate-from-legacy [--from <subdir>] [--force] [--purge]` | 把老版 `~/.config/eidolon/`（或其某个子目录）的状态复制进 `<cwd>/eidolon/` |
 
-**`scripts/generate.py`** —— 7 个 flag:
+**`scripts/generate.py`** —— 9 个 flag:
 
 | Flag | 用途 |
 |------|------|
