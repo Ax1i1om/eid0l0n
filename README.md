@@ -262,7 +262,7 @@ See [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) for the full 
 Resolution order (first hit wins):
 
 1. CLI flags
-2. Environment variables (legacy `EID0L0N_*` honored)
+2. Environment variables (`EIDOLON_*`)
 3. `<workspace>/eidolon/env` (mode 600, written by `setup.py set-api` — `<workspace>` is the host's current working directory, OpenClaw + Hermes contract; `EIDOLON_HOME` overrides the dir entirely)
 4. Sensible defaults
 

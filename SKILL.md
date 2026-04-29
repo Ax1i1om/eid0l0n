@@ -347,7 +347,7 @@ When the agent detects the force_word, immediately map it to an opaque internal 
 
 ## OUTPUT
 
-Default directory: `$EIDOLON_OUTPUT_DIR` (legacy `$EID0L0N_OUTPUT_DIR` still honored) if set, else:
+Default directory: `$EIDOLON_OUTPUT_DIR` if set, else:
 - OpenClaw → `~/.openclaw/workspace/eidolon/`
 - Hermes → `~/.hermes/workspace/eidolon/`
 - Standalone → `~/Pictures/eidolon/`

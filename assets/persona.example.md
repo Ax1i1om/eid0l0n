@@ -4,7 +4,7 @@ The wizard (scripts/setup.py) generates a real one at ~/.config/eidolon/persona.
 You can edit that file directly any time — eidolon will pick up changes on the next run.
 
 Optional first-line header: `reference: <absolute-path-to-image>`
-If omitted, $EID0L0N_REFERENCE env var or --reference CLI flag is required.
+If omitted, $EIDOLON_REFERENCE env var or --reference CLI flag is required.
 -->
 
 reference: ~/.config/eidolon/reference.jpg

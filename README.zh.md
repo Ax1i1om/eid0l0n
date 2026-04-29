@@ -260,7 +260,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 解析顺序（first hit wins）:
 
 1. CLI flag
-2. 环境变量（老的 `EID0L0N_*` 还兼容）
+2. 环境变量（`EIDOLON_*`）
 3. `<workspace>/eidolon/env`（mode 600，由 `setup.py set-api` 写 —— `<workspace>` 是 host 当前 cwd，OpenClaw + Hermes 官方契约；`EIDOLON_HOME` 可整目录覆盖）
 4. 默认值
 
