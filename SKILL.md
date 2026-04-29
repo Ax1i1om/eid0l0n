@@ -8,6 +8,7 @@ metadata:
     category: creative
     requires_toolsets: [terminal]
   openclaw:
+    os: [darwin, linux]
     requires:
       bins: [python3]
       env: [OPENAI_API_KEY, GEMINI_API_KEY, FAL_KEY, REPLICATE_API_TOKEN, IMAGE_API_KEY]

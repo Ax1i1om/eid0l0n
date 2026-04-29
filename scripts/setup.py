@@ -271,7 +271,11 @@ def cmd_set_api(args) -> int:
     with _file_lock():
         ENV_PATH.write_text("\n".join(lines) + "\n")
         os.chmod(ENV_PATH, 0o600)
-    print(f"✓ wrote {ENV_PATH} (mode 600)")
+    if os.name == "posix":
+        print(f"✓ wrote {ENV_PATH} (mode 600)")
+    else:
+        print(f"✓ wrote {ENV_PATH}")
+        print(f"  WARNING: chmod 0o600 is a no-op on {os.name}. Restrict access via OS ACLs if this is a multi-user machine.")
     print("Reminder: run this command IN YOUR OWN SHELL. Never have an agent collect the key from chat and run this for you.")
     return 0
 

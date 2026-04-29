@@ -172,7 +172,6 @@ def resolve_anchor_path(cli: str | None) -> Path:
     candidates = [
         cli,
         os.environ.get("EIDOLON_VISUAL_ANCHOR"),
-        os.environ.get("EID0L0N_VISUAL_ANCHOR"),
         str(ANCHOR_PATH),
         str(SKILL_DIR / "assets" / "persona.example.md"),
     ]
@@ -207,7 +206,6 @@ def resolve_reference_path(cli: str | None, anchor_ref: str | None) -> Path | No
     candidates = [
         cli,
         os.environ.get("EIDOLON_REFERENCE"),
-        os.environ.get("EID0L0N_REFERENCE"),
         anchor_ref,
     ]
     for c in candidates:
@@ -223,7 +221,7 @@ def resolve_reference_path(cli: str | None, anchor_ref: str | None) -> Path | No
 
 
 def resolve_output_dir() -> Path:
-    env = os.environ.get("EIDOLON_OUTPUT_DIR") or os.environ.get("EID0L0N_OUTPUT_DIR")
+    env = os.environ.get("EIDOLON_OUTPUT_DIR")
     if env:
         return Path(env).expanduser().resolve()
     home = Path.home()
@@ -846,8 +844,9 @@ def cmd_doctor() -> int:
     print("  backends (priority order, first available is auto-pick):")
     selected = None
     forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
-    for name, display, detect, _gen in BACKENDS:
-        info = detect()
+    detections = detect_all()
+    for name, display, _detect, _gen in BACKENDS:
+        info = detections[name]
         ok = "✓" if info.get("available") else "✗"
         if info.get("available") and selected is None:
             selected = name
