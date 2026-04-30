@@ -6,13 +6,16 @@ anchor/reference resolution, preferences, and a cross-platform file lock.
 No backends, no API calls, no CLI. Imported by both `backends` and the
 two CLI entry points (`generate`, `setup`).
 
-State directory contract — see docs/HOST-COMPATIBILITY.md:
+State + output directory contract — see docs/HOST-COMPATIBILITY.md:
 
-    cwd          | <cwd>/eidolon/   (cwd resolved per host)
-    EIDOLON_HOME | overrides cwd resolution (always wins)
+    cwd                | <cwd>/eidolon/   (cwd resolved per host)
+    EIDOLON_HOME       | overrides cwd resolution for state (always wins)
+    EIDOLON_OUTPUT_DIR | overrides where rendered images land
 
-Running from inside the skill source repo is refused; agents must point
-EIDOLON_HOME at a writable workspace.
+Output and state share the same dir by default so whichever host invokes
+the skill is also where the PNGs land. Running from inside the skill
+source repo is refused; agents must point EIDOLON_HOME at a writable
+workspace.
 """
 from __future__ import annotations
 
@@ -189,14 +192,22 @@ def resolve_reference_path(cli: str | None, anchor_ref: str | None) -> Path | No
 
 
 def resolve_output_dir() -> Path:
+    """Output goes alongside state — same workspace as _resolve_state_dir().
+
+    Whichever host invokes the skill (OpenClaw, Hermes CLI, Hermes Gateway,
+    container, …) defines cwd; state and output both live at <cwd>/eidolon/.
+    EIDOLON_OUTPUT_DIR overrides for advanced/test use (e.g., point PNGs at a
+    separate disk while state stays in the workspace).
+
+    Earlier versions probed hardcoded ``~/.openclaw/workspace`` then
+    ``~/.hermes/workspace`` and returned the first that existed. That drifted
+    from the cwd-based host model in _resolve_state_dir() and routed Hermes
+    output into ``.openclaw`` whenever both dirs existed on disk.
+    """
     env = os.environ.get("EIDOLON_OUTPUT_DIR")
     if env:
         return Path(env).expanduser().resolve()
-    home = Path.home()
-    for host_dir in (home / ".openclaw" / "workspace", home / ".hermes" / "workspace"):
-        if host_dir.exists():
-            return host_dir / "eidolon"
-    return home / "Pictures" / "eidolon"
+    return _resolve_state_dir()
 
 
 # ─── prefs + lock ──────────────────────────────────────────────────────────
