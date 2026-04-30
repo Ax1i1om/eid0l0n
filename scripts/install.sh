@@ -59,11 +59,24 @@ c_b "EID0L0N — installer"; echo
 c_dim "  εἴδωλον · the image-form of a person, made present in their absence."; echo
 echo
 
+# Items we currently ship in the bundle.
+BUNDLE_ITEMS=(SKILL.md scripts references assets docs)
+# Items we used to ship but no longer do — explicitly purged on every install
+# so a re-run cleans up after old versions. Add to this list when you remove
+# a top-level item from BUNDLE_ITEMS.
+LEGACY_BUNDLE_ITEMS=(templates config.example.json)
+
 copy_bundle() {
   local dest="$1"
   mkdir -p "$dest"
-  for item in SKILL.md scripts references assets; do
-    cp -R "$REPO_ROOT/$item" "$dest/"
+  # Idempotent install: wipe known-shipped items (current + legacy) before
+  # copying so removed files don't linger on re-install. We only remove items
+  # we authored — anything else the user dropped in is left untouched.
+  for item in "${BUNDLE_ITEMS[@]}" "${LEGACY_BUNDLE_ITEMS[@]}"; do
+    rm -rf "${dest:?}/$item"
+  done
+  for item in "${BUNDLE_ITEMS[@]}"; do
+    [[ -e "$REPO_ROOT/$item" ]] && cp -R "$REPO_ROOT/$item" "$dest/"
   done
   # Strip dev artifacts that shouldn't ship to the host's skill dir.
   find "$dest" \( -name __pycache__ -o -name "*.pyc" -o -name .DS_Store \) -exec rm -rf {} + 2>/dev/null || true
