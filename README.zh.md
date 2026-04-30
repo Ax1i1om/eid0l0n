@@ -180,7 +180,9 @@ agent **可能**自己决定显形的时刻:
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG 层（<workspace>/eidolon/，mode 600 —— <workspace> = host 的 cwd）
+│  CONFIG 层（<cwd>/eidolon/，mode 600 —— <cwd> 按 host 解析：OpenClaw 用 agent
+│  workspace（`~/.openclaw/workspace`），Hermes CLI 用 `pwd`，Hermes Gateway 默认 `~`
+│  除非设置了 `MESSAGING_CWD`。详见 docs/HOST-COMPATIBILITY.md。）
 │  visual_anchor.md — 角色描述（agent 从自己 SOUL 抽出来一次性写好）
 │  reference.png    — 标准参考图（用户给的，或者生成 + 审过的）
 │  env              — IMAGE_API_KEY，mode 600
@@ -262,7 +264,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 1. CLI flag
 2. 环境变量（`EIDOLON_*`）
-3. `<workspace>/eidolon/env`（mode 600，由 `setup.py set-api` 写 —— `<workspace>` 是 host 当前 cwd，OpenClaw + Hermes 官方契约；`EIDOLON_HOME` 可整目录覆盖）
+3. `<cwd>/eidolon/env`（mode 600，由 `setup.py set-api` 写）。`<cwd>` 是宿主当前 cwd —— 按 host / mode 不同会落在不同位置，详见 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) 里的 per-host/per-mode 表（OpenClaw = `~/.openclaw/workspace`，Hermes CLI = `pwd`，Hermes Gateway 默认 `~` 除非设置 `MESSAGING_CWD`）。`EIDOLON_HOME` 可整目录覆盖。
 4. 默认值
 
 | 变量 | 必需 | 默认 |
@@ -313,6 +315,8 @@ scripts/
 references/                ← 让 Claude/agent 按需加载的文档
   AGENT-PROTOCOL.md        ← CLI 参考 + onboarding 伪代码
   PERSONA-GUIDE.md         ← onboarding 完成后怎么打磨 visual_anchor.md
+docs/
+  HOST-COMPATIBILITY.md    ← 各 host 的安装路径 / cwd 契约 / 图片交付（带 spec 引用）
 assets/                    ← 输出会用到的模板和示例
   persona.example.md       ← 给没有 SOUL.md 的用户的工作示例
 ```
@@ -345,10 +349,15 @@ uv run scripts/generate.py \
 
 脚本写一个 PNG，打印路径。送到用户那里 **是 agent 的事**，宿主不同方式不同:
 
-- **OpenClaw** —— 完整命令（参考 clawra 这个范例 skill）:
+- **OpenClaw** —— 按 [`docs.openclaw.ai/cli/message`](https://docs.openclaw.ai/cli/message)，`openclaw message send` 必须带 `--target <dest>`，再加 `--message`/`--media`/`--presentation` 至少一项：
   ```bash
-  openclaw message send --action send --channel "<channel>" --media "<path>" --message "<caption>"
+  openclaw message send \
+    --channel <session-channel> \
+    --target <session-target> \
+    --media "<path>" \
+    --message "<caption>"
   ```
+  Agent 从 session context 里读 `--channel`（如 `telegram`/`discord`）和 `--target`（如 `channel:<id>` 或 `@user`）—— 也就是它当下正在回复的那个频道/对象。**没有 `--action` 这个 flag。**
 - **Hermes / 单机** —— 在 agent 的回复里塞 `![](path)`，或者直接打路径让客户端渲染。
 
 脚本永远不送图 —— 只有 agent 送。
@@ -357,12 +366,12 @@ uv run scripts/generate.py \
 
 ## 工程细节
 
-- **极简 frontmatter，符合 AgentSkills 规范。** 顶层是 `name / description / version`，外加一个 `metadata` 块，里面嵌 `hermes`（tags / category / requires_toolsets）和 `openclaw`（os / requires.bins / requires.env / primaryEnv / emoji / homepage）两个段。OpenClaw 严格解析器和 Hermes agentskills.io 规范两边都过。
+- **单行 frontmatter，双 host 兼容。** 顶层 key：`name`、`description`、`version`、`homepage`，再加一个 `metadata` 单行 JSON 对象，里面包 `hermes.{tags, category, requires_toolsets}` 和 `openclaw.{os, requires.{bins, env}, primaryEnv}`。单行 JSON 的写法同时满足 OpenClaw 严格解析器（按 [`docs.openclaw.ai/tools/skills`](https://docs.openclaw.ai/tools/skills) 的 "only single-line frontmatter keys, metadata as single-line JSON" 约束）和 Hermes 的 YAML flow-style 解析（agentskills.io 兼容）。一份 SKILL.md 同时跑两个 host。
 - **原子文件操作。** 每个 anchor / reference / env / preferences 写都被 `flock` 包住。reference 图换用 tmp + replace。
 - **重试 + 指数退避。** 每个 model 重试 3 次，遇到 408/429/5xx/超时按指数退避。不可恢复错误（auth、content policy 等）立即换下一个 model。
 - **CRLF 规范化** —— 每次读 Markdown 都先 normalize，Windows 编辑过的 anchor 不会因为路径里多个 `\r` 而坏掉。
 - **PIL 在生成时才 fail-fast，不在 import 时。** `--help` / `--doctor` / `--list-scenes` 没装 pillow 也能跑。
-- **锁活过 context 压缩。** FORCE 通道的 register 锁把 `{locked_until, max_register}` 写到 `<workspace>/eidolon/preferences.json`，所以一段 60 分钟的 intimate session 不会因为 agent 上下文被对话中途总结而丢失。
+- **锁活过 context 压缩。** FORCE 通道的 register 锁把 `{locked_until, max_register}` 写到 `<cwd>/eidolon/preferences.json`（`<cwd>` 按 host 解析，详见 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md)），所以一段 60 分钟的 intimate session 不会因为 agent 上下文被对话中途总结而丢失。
 
 ---
 
@@ -370,7 +379,7 @@ uv run scripts/generate.py \
 
 欢迎 PR。两条**绝不妥协**的设计原则:
 
-1. **永远不让 secret 进仓库。** API key 只活在 `<workspace>/eidolon/env`（mode 600），由用户在**自己的 shell** 里写。skill 显式拒绝从 chat 里收 key。
+1. **永远不让 secret 进仓库。** API key 只活在 `<cwd>/eidolon/env`（mode 600，`<cwd>` 按 host 解析），由用户在**自己的 shell** 里写。skill 显式拒绝从 chat 里收 key。
 2. **代码只保证角色一致性。** 场景 / 动作 / 心情 / register / 光影 / 构图相关的语言都放进 SKILL.md prose 作为灵感词汇。Agent 写 prompt。如果一个 PR 加了 `--register` flag 或者把 register overlay 写死进 `generate.py`，我会直接 close。
 
 如果你想给 `SCENES` 加场景预设，写成**起点**（简洁、含 framing），不要写成模板。真正的价值在 SKILL.md 的灵感词汇里，不在代码侧的默认值里。

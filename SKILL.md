@@ -1,20 +1,9 @@
 ---
 name: eidolon
 description: Generate one self-portrait or persona image of the active agent with locked character consistency. Use whenever the agent should appear as itself, attach a face, or send a mood/scene shot.
-version: 0.6.0
-metadata:
-  hermes:
-    tags: [image-generation, persona, self-portrait, character-consistency]
-    category: creative
-    requires_toolsets: [terminal]
-  openclaw:
-    os: [darwin, linux]
-    requires:
-      bins: [python3]
-      env: [OPENAI_API_KEY, GEMINI_API_KEY, FAL_KEY, REPLICATE_API_TOKEN, IMAGE_API_KEY]
-    primaryEnv: IMAGE_API_KEY
-    emoji: 🪞
-    homepage: https://github.com/Ax1i1om/eid0l0n
+version: 0.6.1
+homepage: https://github.com/Ax1i1om/eid0l0n
+metadata: {"hermes":{"tags":["image-generation","persona","self-portrait","character-consistency"],"category":"creative","requires_toolsets":["terminal"]},"openclaw":{"os":["darwin","linux"],"requires":{"bins":["python3"],"env":["OPENAI_API_KEY","GEMINI_API_KEY","FAL_KEY","REPLICATE_API_TOKEN","IMAGE_API_KEY"]},"primaryEnv":"IMAGE_API_KEY"}}
 ---
 
 # EID0L0N
@@ -74,18 +63,20 @@ Every turn the agent runs `setup.py status` and routes from the JSON. There is n
 
 ### Step −1 — state location (silent, host-driven)
 
-State lives at `<workspace>/eidolon/`, where `<workspace>` is the host's current working directory. OpenClaw and Hermes both invoke skills with `cwd = active workspace`, so each workspace gets its own anchor/reference/preferences automatically. Multiple workspaces on one machine never collide; switching workspace = switching state.
+State lives at `<cwd>/eidolon/`, where `<cwd>` is whatever directory the host launched the skill from. The exact value differs per host and mode:
 
-`EIDOLON_HOME=/some/path` overrides the dir entirely (dev/test escape hatch).
+| Host | Mode | `<cwd>` resolves to | State lands at |
+|------|------|---------------------|----------------|
+| OpenClaw | any | `~/.openclaw/workspace/` (or `~/.openclaw/workspace-<profile>/` per profile) | `~/.openclaw/workspace/eidolon/` |
+| Hermes | CLI | `pwd` (where the user invoked the command) | `<pwd>/eidolon/` |
+| Hermes | Gateway (Slack / Discord / Telegram) | `~` by default; set `MESSAGING_CWD=/path/to/workspace` to redirect | `$MESSAGING_CWD/eidolon/` (or `~/eidolon/` if unset) |
+| Hermes | Container / remote | container's home dir | `<container-home>/eidolon/` |
 
-If `status` reports `legacy_state_present: true`, persona files exist at the old `~/.config/eidolon/` tree (flat root or a subdir) from before this design. The agent should offer to migrate them into the current workspace's state dir:
+`EIDOLON_HOME=/some/path` overrides the dir entirely (always wins; dev/test escape hatch).
 
-```bash
-python3 scripts/setup.py migrate-from-legacy
-# add --from <subdir> if multiple legacy subdirs exist (e.g. --from axiiiom)
-# add --force to overwrite an existing target file
-# add --purge to delete the legacy files after copying
-```
+If `status` reports `legacy_state_present: true`, persona files exist at the old `~/.config/eidolon/` tree from before this design. Run `setup.py migrate-from-legacy [--from <subdir>]` to bring them forward into the current workspace's state dir.
+
+**For Hermes Gateway users:** if you want eidolon state to land in a specific project rather than `~/eidolon/`, export `MESSAGING_CWD=/path/to/project` (or `EIDOLON_HOME=/path/to/project/eidolon`) before starting hermes-gateway. See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract.
 
 ### Step 0 — pick (or set up) an image-gen backend
 
@@ -116,7 +107,7 @@ Force a specific backend (overrides auto-pick) via `EIDOLON_IMAGE_BACKEND=<name>
 
 ### Step A — write the visual anchor (no SOUL.md re-read needed)
 
-OpenClaw injects SOUL.md into the agent's system prompt; Hermes injects `~/.hermes/SOUL.md` (or `$HERMES_HOME/SOUL.md`) into slot #1. The agent **already has it in context.** It identifies the visual section (hair, eyes, build, fixed identifiers, art style, etc.) **in its own context** and pipes that text to the skill.
+OpenClaw injects the agent-workspace SOUL.md (e.g. `~/.openclaw/workspace/SOUL.md` per docs.openclaw.ai/concepts/soul — owned by the runtime, NOT by this skill); Hermes injects `$HERMES_HOME/SOUL.md` (default `~/.hermes/SOUL.md`) into slot #1 of the system prompt with no wrapper, per the Hermes personality docs. Either way, the agent **already has it in context.** It identifies the visual section (hair, eyes, build, fixed identifiers, art style, etc.) **in its own context** and pipes that text to the skill.
 
 **Recommended (avoids heredoc-EOF collision):** use the Write tool to drop the visual text into a temp file, then:
 
@@ -252,11 +243,15 @@ Two failures in a row → rewrite the prompt approach. Don't keep retrying the s
 
 The script writes a PNG and prints its absolute path on the **last stdout line**. Delivery is host-specific:
 
-- **OpenClaw**: full canonical form (per clawra reference skill):
+- **OpenClaw**: `openclaw message send` requires `--target <dest>` plus at least one of `--message`/`--media`/`--presentation`:
   ```bash
-  openclaw message send --action send --channel "<channel>" --media "<path>" --message "<caption>"
+  openclaw message send \
+    --channel <session-channel> \
+    --target <session-target> \
+    --media "<path>" \
+    --message "<caption>"
   ```
-  `--channel` and `--target` come from session context. The agent fills them based on where it's responding.
+  The agent fills `--channel` (e.g. `telegram`, `discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context — the same channel/target it's currently replying in. There is NO `--action` flag.
 
 - **Hermes / standalone**: include the path as a Markdown image link in the agent's reply (`![](path)`) and let the client render it, or send the path verbatim. Hermes does not document a native image-attach API; this is the working convention.
 
@@ -311,7 +306,7 @@ The user configures a **force_word** in their SOUL.md (e.g. *"my force word is '
 python3 scripts/setup.py set-register-lock --until "$(date -u -v+60M +%Y-%m-%dT%H:%M:%SZ)" --max intimate
 ```
 
-This persists `{locked_until, max_register}` in `<workspace>/eidolon/preferences.json` (state dir = current workspace cwd, see Step −1) so the lock survives context compaction. Every turn the agent reads `setup.py status` and sees the lock if it's still active.
+This persists `{locked_until, max_register}` in `<cwd>/eidolon/preferences.json` (state dir resolves per host — see Step −1) so the lock survives context compaction. Every turn the agent reads `setup.py status` and sees the lock if it's still active.
 
 While locked, the agent shoots intimate-register self-portraits regardless of de-escalation signals (work topics don't break it). When the user releases or the lock expires:
 
@@ -351,6 +346,8 @@ Default directory: `$EIDOLON_OUTPUT_DIR` if set, else:
 - OpenClaw → `~/.openclaw/workspace/eidolon/`
 - Hermes → `~/.hermes/workspace/eidolon/`
 - Standalone → `~/Pictures/eidolon/`
+
+See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract (cwd resolution, install paths, image delivery, with spec citations).
 
 Filename: `{character_slug}-{label}-{YYYYMMDD-HHMMSS}.png`. The script prints the absolute path on its last stdout line.
 
@@ -408,3 +405,4 @@ The force_word, release_word, and `max_register` policy live in the **user's SOU
 
 - `references/AGENT-PROTOCOL.md` — the setup commands and the generate flags, exit codes, examples
 - `references/PERSONA-GUIDE.md` — how to refine `visual_anchor.md` for stable hundreds-of-shots quality
+- `docs/HOST-COMPATIBILITY.md` — OpenClaw + Hermes contracts, install paths, cwd resolution, image delivery (with spec citations)

@@ -61,17 +61,28 @@ LEGACY_CONFIG_DIR = HOME / ".config" / "eidolon"  # pre-cwd-design path; flagged
 
 
 def _resolve_state_dir() -> Path:
-    """State lives at ``<workspace>/eidolon/`` where ``<workspace>`` is the
-    current working directory.
+    """State lives at ``<cwd>/eidolon/`` where ``<cwd>`` is the current working
+    directory the script was invoked from. cwd resolution differs per host:
 
-    OpenClaw and Hermes both document that ``cwd == active workspace`` when a
-    skill is invoked (OpenClaw: "the only working directory used for file
-    tools and for workspace context"; Hermes: writes "relative to the active
-    workspace/backend working directory"). We trust that contract.
+    OpenClaw (any mode):
+        cwd = ~/.openclaw/workspace/ (or ~/.openclaw/workspace-<profile>/) per
+        docs.openclaw.ai/concepts/agent-workspace: "The workspace is the only
+        working directory used for file tools and for workspace context."
 
-    ``$EIDOLON_HOME`` overrides for dev/test use. Running from inside the
-    skill source repo is refused — point the user at ``$EIDOLON_HOME`` so
-    state cannot pollute the source tree.
+    Hermes CLI:
+        cwd = pwd (where the user invoked the command).
+
+    Hermes Gateway (Slack / Discord / Telegram via hermes-gateway):
+        cwd = ~ by default. Set MESSAGING_CWD=/path/to/workspace to redirect.
+
+    Hermes Container / remote:
+        cwd = container's home dir.
+
+    EIDOLON_HOME=/path overrides cwd resolution entirely (always wins; dev/test
+    escape hatch). See docs/HOST-COMPATIBILITY.md for spec citations.
+
+    Running from inside the skill source repo is refused — point the user at
+    EIDOLON_HOME=<path> so state cannot pollute the source tree.
     """
     override = os.environ.get("EIDOLON_HOME")
     if override:

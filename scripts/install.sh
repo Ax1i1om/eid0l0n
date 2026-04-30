@@ -8,6 +8,27 @@
 #
 # Onboarding is agent-driven (no install-time wizard). Idempotent; safe to re-run.
 
+# Install paths and host conventions (post-2026-04-30 audit-driven decision):
+#
+#   ~/.openclaw/skills/<name>/    OpenClaw "managed/local" tier (4 of 6 by load
+#                                 precedence per docs.openclaw.ai/concepts/agent-workspace).
+#                                 Workspace skills (~/.openclaw/workspace/skills/)
+#                                 and project agent skills (<workspace>/.agents/skills/)
+#                                 take priority. We install to tier 4 because:
+#                                  - it's the only tier that's user-machine-global
+#                                    rather than per-project
+#                                  - eidolon state is workspace-scoped via cwd, not
+#                                    skill-scoped, so ranking doesn't matter
+#                                  - publishing to ClawHub later switches install path
+#                                    to `openclaw skills install eidolon` (ClawHub
+#                                    registry) which lands in the same tier
+#
+#   ~/.hermes/skills/<name>/      Hermes auto-discovers this directory ("primary
+#                                 directory and source of truth" per the skills
+#                                 docs) — no config-patch step required.
+#
+# See docs/HOST-COMPATIBILITY.md for the full per-host contract.
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -148,3 +169,12 @@ echo
 echo "  Inspect state any time:"
 echo "    python3 $REPO_ROOT/scripts/setup.py status"
 echo
+
+if [[ $installed_openclaw -eq 1 && $installed_hermes -eq 1 ]]; then
+  c_b "→ Dual-host install detected"; echo
+  echo "  Both OpenClaw and Hermes are configured. cwd resolution differs"
+  echo "  between hosts (and between Hermes CLI vs. Gateway mode) — see"
+  echo "  $REPO_ROOT/docs/HOST-COMPATIBILITY.md for the per-host contract"
+  echo "  and Gateway/MESSAGING_CWD caveats."
+  echo
+fi

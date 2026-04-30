@@ -182,7 +182,9 @@ You can tilt how proactive the agent is by adding **one line** to your SOUL.md:
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG  (<workspace>/eidolon/, mode 600 — <workspace> = host's cwd)
+│  CONFIG  (<cwd>/eidolon/, mode 600 — <cwd> resolves per host: OpenClaw uses
+│           the agent workspace, Hermes CLI uses pwd, Hermes Gateway defaults
+│           to ~ unless MESSAGING_CWD is set. See docs/HOST-COMPATIBILITY.md.)
 │  visual_anchor.md — character description (written once by agent from its SOUL)
 │  reference.png    — canonical reference image (saved or generated + approved)
 │  env              — IMAGE_API_KEY, mode 600
@@ -264,7 +266,7 @@ Resolution order (first hit wins):
 
 1. CLI flags
 2. Environment variables (`EIDOLON_*`)
-3. `<workspace>/eidolon/env` (mode 600, written by `setup.py set-api` — `<workspace>` is the host's current working directory, OpenClaw + Hermes contract; `EIDOLON_HOME` overrides the dir entirely)
+3. `<cwd>/eidolon/env` (mode 600, written by `setup.py set-api`). `<cwd>` is the host's current working directory — see [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the per-host/per-mode breakdown (OpenClaw = `~/.openclaw/workspace`, Hermes CLI = `pwd`, Hermes Gateway = `~` unless `MESSAGING_CWD` is set). `EIDOLON_HOME` overrides the dir entirely.
 4. Sensible defaults
 
 | Variable | Required | Default |
@@ -315,6 +317,8 @@ scripts/
 references/                ← docs Claude/agent loads on demand
   AGENT-PROTOCOL.md        ← CLI reference + onboarding pseudocode
   PERSONA-GUIDE.md         ← how to refine visual_anchor.md after onboarding
+docs/
+  HOST-COMPATIBILITY.md    ← per-host install path / cwd contract / image delivery (spec-cited)
 assets/                    ← templates and example files used in output
   persona.example.md       ← worked example for users without a SOUL.md
 ```
@@ -347,10 +351,15 @@ The script prints the absolute output path on its last stdout line. `--doctor` s
 
 The script writes a PNG and prints its absolute path. Delivery to the user is the agent's job, host-specific:
 
-- **OpenClaw** — full canonical form (per the clawra reference skill):
+- **OpenClaw** — per [`docs.openclaw.ai/cli/message`](https://docs.openclaw.ai/cli/message), `openclaw message send` requires `--target <dest>` plus at least one of `--message`/`--media`/`--presentation`:
   ```bash
-  openclaw message send --action send --channel "<channel>" --media "<path>" --message "<caption>"
+  openclaw message send \
+    --channel <session-channel> \
+    --target <session-target> \
+    --media "<path>" \
+    --message "<caption>"
   ```
+  The agent reads `--channel` (e.g. `telegram`/`discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context. There is NO `--action` flag.
 - **Hermes / standalone** — `![](path)` in the agent's reply, or send the path verbatim.
 
 The script never delivers — only the agent does.
@@ -359,12 +368,12 @@ The script never delivers — only the agent does.
 
 ## Engineering notes
 
-- **Minimal frontmatter, AgentSkills-spec compliant.** Top-level keys: `name`, `description`, `version`, plus a `metadata` block with nested `hermes` (tags, category, requires_toolsets) and `openclaw` (os, requires.bins, requires.env, primaryEnv, emoji, homepage) sections. Compatible with both OpenClaw's strict parser and Hermes' agentskills.io conventions.
+- **Single-line frontmatter, dual-host compatible.** Top-level keys: `name`, `description`, `version`, `homepage`, plus `metadata` as a single-line JSON object containing `hermes.{tags, category, requires_toolsets}` and `openclaw.{os, requires.{bins, env}, primaryEnv}` blocks. Single-line JSON satisfies OpenClaw's strict parser (per [`docs.openclaw.ai/tools/skills`](https://docs.openclaw.ai/tools/skills): "supports single-line frontmatter keys only, with metadata as a single-line JSON object") AND parses cleanly as YAML flow-style for Hermes (per [agentskills.io](https://agentskills.io)). The skill therefore works in both hosts from a single SKILL.md.
 - **Atomic file ops.** `flock` wraps every write to anchor / reference / env / preferences. Tmp + replace for the reference image swap.
 - **Retry with backoff.** 3 attempts per model with exponential backoff on 408/429/5xx/timeout. Non-retryable errors advance to the next model in the chain.
 - **CRLF normalization** at every Markdown read — Windows-edited anchors don't break path parsing.
 - **PIL fail-fast at generation time, not at import.** `--help` / `--doctor` / `--list-scenes` work without pillow installed.
-- **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `<workspace>/eidolon/preferences.json` so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
+- **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `<cwd>/eidolon/preferences.json` (see [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for how `<cwd>` resolves per host) so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
 
 ---
 
@@ -372,7 +381,7 @@ The script never delivers — only the agent does.
 
 PRs welcome. Two design rules I won't compromise on:
 
-1. **No secrets in the repo, ever.** API key lives only in `<workspace>/eidolon/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
+1. **No secrets in the repo, ever.** API key lives only in `<cwd>/eidolon/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
 2. **Code only enforces character consistency.** Scene / action / mood / register / lighting / composition language goes in SKILL.md prose as inspiration. The agent writes the prompt. If a PR adds a `--register` flag or hardcodes register overlays into `generate.py`, I'll close it.
 
 If you want to contribute scene presets to `SCENES`, write them as starting points (terse, framing-aware), not as templates. Real value is in the SKILL.md vocabularies, not in code-side defaults.

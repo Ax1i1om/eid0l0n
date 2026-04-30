@@ -2,7 +2,16 @@
 
 eidolon exposes **7 setup commands** and 1 generation script. Mood / register / lock / decay logic is **not** in the CLI as a state machine — the agent tracks AUTO-channel transitions in its own context window per SKILL.md prose. The one exception is the FORCE-channel register lock, which is persisted to `preferences.json` so it survives context compaction (see `set-register-lock`). Code only enforces character consistency.
 
-State lives at `<workspace>/eidolon/`, where `<workspace>` is the host's current working directory. OpenClaw and Hermes both invoke skills with `cwd = active workspace` — we trust that contract instead of inferring host or persona. Switching workspace = switching state, automatically. `EIDOLON_HOME=/some/path` overrides the dir entirely (dev/test escape hatch). Run `setup.py migrate-from-legacy [--from <subdir>]` to bring forward state from the legacy `~/.config/eidolon/` tree.
+State lives at `<cwd>/eidolon/`, where `<cwd>` is the host's current working directory. The exact value differs per host and mode:
+
+| Host | Mode | `<cwd>` resolves to |
+|------|------|---------------------|
+| OpenClaw | any | `~/.openclaw/workspace/` (or `~/.openclaw/workspace-<profile>/`) |
+| Hermes | CLI | `pwd` (where the user invoked the command) |
+| Hermes | Gateway (Slack / Discord / Telegram) | `~` by default; `MESSAGING_CWD=/path` overrides |
+| Hermes | Container / remote | container's home dir |
+
+`EIDOLON_HOME=/some/path` overrides the dir entirely (always wins; dev/test escape hatch). Run `setup.py migrate-from-legacy [--from <subdir>]` to bring forward state from the legacy `~/.config/eidolon/` tree. See [`docs/HOST-COMPATIBILITY.md`](../docs/HOST-COMPATIBILITY.md) for full per-host contract with spec citations.
 
 ## Backend auto-detection
 
@@ -84,6 +93,8 @@ Read-only state dump. Returns:
 
 Run this **first** every turn. Route from the JSON. Note: `api_key_set` is now informational only (it tracks the legacy `IMAGE_API_KEY`); the agent should branch on `backend_available` instead. If `legacy_state_present` is `true`, persona files exist under the legacy `~/.config/eidolon/` tree — call `migrate-from-legacy [--from <subdir>]` to bring them forward into the current workspace's state dir.
 
+The `workspace_cwd` field reports the actual cwd the script was invoked from — this varies per host/mode (see [`docs/HOST-COMPATIBILITY.md`](../docs/HOST-COMPATIBILITY.md)). On Hermes Gateway it may be `~` unless `MESSAGING_CWD` is configured.
+
 ## `setup.py detect-backends [--json]`
 
 Lists which of the 6 image-gen backends are reachable. Use `--json` for machine-readable output (the agent reads `selected` to know what auto-pick chose, and `available` for alternatives).
@@ -107,7 +118,7 @@ python3 scripts/setup.py detect-backends --json
 
 ## `setup.py save-anchor [--text TEXT | --from-file FILE] [--name NAME]`
 
-Writes `<workspace>/eidolon/visual_anchor.md` from agent-supplied text. State dir = `<cwd>/eidolon/`; set `EIDOLON_HOME` to override. Three input modes:
+Writes `<cwd>/eidolon/visual_anchor.md` from agent-supplied text. State dir = `<cwd>/eidolon/`; set `EIDOLON_HOME` to override. Three input modes:
 
 ```bash
 # Recommended (avoids heredoc-EOF collision with embedded "EOF" markers in SOUL text):
@@ -133,13 +144,13 @@ The original SOUL.md is **never** modified by this skill.
 
 ## `setup.py save-reference --src PATH`
 
-Atomically (tmp + replace) copies an image to `<workspace>/eidolon/reference.<ext>` (mode 644). Validates `.png|.jpg|.jpeg|.webp`. Updates the `reference:` header in `visual_anchor.md`. Use both for user-provided paths AND for promoting an approved candidate.
+Atomically (tmp + replace) copies an image to `<cwd>/eidolon/reference.<ext>` (mode 644). Validates `.png|.jpg|.jpeg|.webp`. Updates the `reference:` header in `visual_anchor.md`. Use both for user-provided paths AND for promoting an approved candidate.
 
 ---
 
 ## `setup.py set-api --key KEY [--base-url URL] [--models CSV]`
 
-Writes `<workspace>/eidolon/env` (mode 600) for the **`openrouter`** backend specifically. Other backends use shell env vars (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`) or no key at all (`codex` reads `~/.codex/auth.json`).
+Writes `<cwd>/eidolon/env` (mode 600) for the **`openrouter`** backend specifically. Other backends use shell env vars (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`) or no key at all (`codex` reads `~/.codex/auth.json`).
 
 **Run this in the user's own shell, not via an agent that received the key in chat.** That path leaks the key into chat logs + model context + disk.
 
@@ -149,7 +160,7 @@ If any other backend is reachable (e.g. `codex login` already done, or `GEMINI_A
 
 ## `setup.py set-register-lock {--clear | --until ISO --max R}`
 
-Persists FORCE-channel register lock to `<workspace>/eidolon/preferences.json` (mode 600). Schema:
+Persists FORCE-channel register lock to `<cwd>/eidolon/preferences.json` (mode 600). Schema:
 
 ```json
 {
@@ -304,7 +315,15 @@ The reference image is auto-attached. The character anchor is auto-prepended. Co
 
 The script writes a PNG, prints the path. Delivery to the user is the agent's job:
 
-- **OpenClaw** (canonical clawra form): `openclaw message send --action send --channel "<channel>" --media "<path>" --message "<caption>"`
+- **OpenClaw**: `openclaw message send` requires `--target <dest>` plus at least one of `--message`/`--media`/`--presentation`:
+  ```bash
+  openclaw message send \
+    --channel <session-channel> \
+    --target <session-target> \
+    --media "<path>" \
+    --message "<caption>"
+  ```
+  The agent fills `--channel` (e.g. `telegram`/`discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context. There is NO `--action` flag (the verb is the subcommand `send` itself; siblings: `broadcast`, `poll`, `react`).
 - **Hermes / standalone**: `![](<path>)` in the agent's reply, or print the path verbatim.
 
 ---

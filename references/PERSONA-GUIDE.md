@@ -2,7 +2,7 @@
 
 The first-invocation flow produces a working `visual_anchor.md` from the agent's own SOUL.md context (or from text you supply directly). That gets you to "the character looks roughly right." This guide is what takes you from "roughly right" to "rock solid across hundreds of generations."
 
-Every section of this guide maps to a section in your `<workspace>/eidolon/visual_anchor.md`. Edit by hand any time — `eidolon` re-reads the file on every run.
+Every section of this guide maps to a section in your `<cwd>/eidolon/visual_anchor.md`. Edit by hand any time — `eidolon` re-reads the file on every run.
 
 ---
 
@@ -107,7 +107,7 @@ The catch-all. Add anything that helps you stay consistent:
 1. **First invocation** — the agent reads its SOUL.md and writes a baseline `visual_anchor.md` via `setup.py save-anchor`
 2. **Generate 10 shots** across very different scenes (preset variety: `idle`, `street_dusk`, `rooftop_dusk`, `kitchen_night`, `library_quiet`, ...)
 3. **Inspect** — what drifted? What got dropped? What's wrong?
-4. **Edit `<workspace>/eidolon/visual_anchor.md`** — add anchors for what drifted, list what got dropped under fixed identifiers, add to forbidden if a wrong outfit/expression keeps showing up
+4. **Edit `<cwd>/eidolon/visual_anchor.md`** — add anchors for what drifted, list what got dropped under fixed identifiers, add to forbidden if a wrong outfit/expression keeps showing up
 5. **Generate the same 10 shots again** — confirm fixes didn't break other things
 6. **Repeat until stable**
 
