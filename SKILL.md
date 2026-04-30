@@ -21,14 +21,7 @@ This skill summons **one recurring character** as image stills. The character is
 - Atomic writes (flock-protected) for the anchor + reference + API key + preferences files.
 - 3-attempt retry per model with exponential backoff on transient errors.
 
-**Not enforced — the agent is the director:**
-- Scene description, action, posture, gesture, gaze
-- Lighting, time-of-day, color palette, framing, depth of field
-- Mood register (warm / tender / intimate / etc.) and how that translates into visual language
-- Composition rules — agent decides per shot
-- Element rotation / variation across shots
-
-The agent writes the **whole scene + composition prose** in `--prompt`. The script wraps it with a one-line character-anchor clause and the reference image, then calls the API. That's it.
+**Not enforced — the agent is the director:** scene description, action, posture, gesture, gaze, lighting, time-of-day, color palette, framing, depth of field, mood register, composition rules, element rotation. The agent writes the **whole scene + composition prose** in `--prompt`. The script wraps it with a one-line character-anchor clause and the reference image, then calls the API.
 
 ---
 
@@ -74,40 +67,15 @@ State lives at `<cwd>/eidolon/`, where `<cwd>` is whatever directory the host la
 
 `EIDOLON_HOME=/some/path` overrides the dir entirely (always wins; dev/test escape hatch).
 
-If `status` reports `legacy_state_present: true`, persona files exist at the old `~/.config/eidolon/` tree from before this design. Run `setup.py migrate-from-legacy [--from <subdir>]` to bring them forward into the current workspace's state dir.
-
-**For Hermes Gateway users:** if you want eidolon state to land in a specific project rather than `~/eidolon/`, export `MESSAGING_CWD=/path/to/project` (or `EIDOLON_HOME=/path/to/project/eidolon`) before starting hermes-gateway. See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract.
+If `status` reports `legacy_state_present: true`, run `setup.py migrate-from-legacy [--from <subdir>]` to bring persona files from `~/.config/eidolon/` into the current state dir. For Hermes Gateway users wanting state in a specific project: export `MESSAGING_CWD=/path/to/project` (or `EIDOLON_HOME=/path/to/project/eidolon`) before launch. See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract.
 
 ### Step 0 — pick (or set up) an image-gen backend
 
-The script auto-detects 6 providers in priority order: `codex` → `gemini` → `openai` → `fal` → `replicate` → `openrouter`. If any one is configured, the agent never has to ask. To enumerate them in machine-readable form:
-
-```bash
-python3 scripts/setup.py detect-backends --json
-# {
-#   "selected": "codex",
-#   "forced": false,
-#   "available": ["codex"],
-#   "details": { "codex": {"available": true, "credit": "free for ChatGPT Plus/Pro/Team", "models": ["gpt-image-2"]}, ... }
-# }
-```
-
-If `backend_available` is `false`, tell the user (in the agent's voice) which option fits them best:
-
-| Backend | How to configure | Notes |
-|---------|------------------|-------|
-| `codex` | run `codex login` once (their own shell) | **Free** for ChatGPT Plus / Pro / Team. Auto-detected from `~/.codex/auth.json`. |
-| `gemini` | `export GEMINI_API_KEY=...` (or `GOOGLE_API_KEY`) | Generous free tier on AI Studio. |
-| `openai` | `export OPENAI_API_KEY=...` | Pay-per-image via Images API (gpt-image-2). |
-| `fal` | `export FAL_KEY=...` | Many models — flux, gpt-image-2, nano-banana. |
-| `replicate` | `export REPLICATE_API_TOKEN=...` | flux-kontext / flux-1.1-pro defaults. |
-| `openrouter` | `setup.py set-api --key <KEY>` | Legacy default. Pay-per-token. |
-
-Force a specific backend (overrides auto-pick) via `EIDOLON_IMAGE_BACKEND=<name>` in the agent's environment, or `--backend <name>` per call.
+The script auto-detects 6 providers in priority order: `codex` → `gemini` → `openai` → `fal` → `replicate` → `openrouter`. If any one is configured the agent never has to ask. If `backend_available` is `false`, ask the user (in the agent's voice) to configure one — see [`references/BACKENDS.md`](references/BACKENDS.md) for the full setup matrix and credential reference.
 
 ### Step A — write the visual anchor (no SOUL.md re-read needed)
 
-OpenClaw injects the agent-workspace SOUL.md (e.g. `~/.openclaw/workspace/SOUL.md` per docs.openclaw.ai/concepts/soul — owned by the runtime, NOT by this skill); Hermes injects `$HERMES_HOME/SOUL.md` (default `~/.hermes/SOUL.md`) into slot #1 of the system prompt with no wrapper, per the Hermes personality docs. Either way, the agent **already has it in context.** It identifies the visual section (hair, eyes, build, fixed identifiers, art style, etc.) **in its own context** and pipes that text to the skill.
+OpenClaw and Hermes both inject SOUL.md into the agent's system prompt at launch, so the agent **already has it in context.** It identifies the visual section (hair, eyes, build, fixed identifiers, art style, etc.) **in its own context** and pipes that text to the skill.
 
 **Recommended (avoids heredoc-EOF collision):** use the Write tool to drop the visual text into a temp file, then:
 
@@ -141,21 +109,20 @@ When they reply on the next turn:
 # user gave a path:
 python3 scripts/setup.py save-reference --src <path>
 
-# user said "generate one" (no reference yet — text-only):
+# user said "generate one" (text-only bootstrap):
 candidate=$(uv run scripts/generate.py --bootstrap \
-            --prompt "<the agent writes a clean reference-portrait prompt: centered, neutral background, even soft light, subject visible from waist up, calm expression looking slightly off-camera>" \
+            --prompt "<clean reference portrait: centered, neutral bg, soft light, waist-up, calm off-camera gaze>" \
             --label "candidate")
-# show $candidate to the user, ask "approve / regenerate <feedback> / cancel"
+# show $candidate, ask "approve / regenerate <feedback> / cancel"
 
 # user said "approve":
 python3 scripts/setup.py save-reference --src "$candidate"
 
-# user said "regenerate, softer expression":
+# user said "regenerate, softer expression" — iterate-on-image mode:
 candidate=$(uv run scripts/generate.py --bootstrap --reference "$candidate" \
-            --prompt "<rewrite the reference-portrait prompt, incorporating the user's feedback: softer expression>" \
+            --prompt "<rewrite incorporating feedback: softer expression>" \
             --label "candidate")
-# --bootstrap + --reference triggers iterate-on-image mode: the model edits the prior
-# candidate instead of redrawing a new face. The anchor clause auto-softens.
+# --bootstrap + --reference edits the prior candidate; anchor clause auto-softens.
 ```
 
 The agent **always** stops after one tool-and-ask round and waits for the user's next message.
@@ -190,54 +157,11 @@ uv run scripts/generate.py --prompt "<the full prose>" --label "<short-label>"
 
 The script prepends a tiny character-anchor clause and attaches the reference image. Nothing else.
 
-### Element pool (inspiration, not vocabulary lock)
-
-Use these as starting points; the agent can use any phrasing the moment calls for.
-
-| Axis | Examples |
-|------|----------|
-| **Mood** | confident, focused, playful, lazy, cool, tender, curious, defiant, calm, longing, vulnerable, contemplative, mischievous |
-| **Time** | pre-dawn, golden hour, harsh midday, lazy afternoon, dusk, blue hour, late night, rainy afternoon, overcast morning |
-| **Place** | desk, crosswalk, café, rooftop, gym, train, kitchen, gallery, lab, balcony, convenience store, bookstore, garden, hallway |
-| **Action** | typing, walking-and-turning, hand-on-cheek, stretching, reading, sipping, leaning, breathing out, tying hair, looking up from a book |
-
-### Time-of-day → light (suggestion table)
-
-When the agent embeds time in a prompt, these are the visual associations it can draw on:
-
-| Time | Light feel |
-|------|------------|
-| pre-dawn (0-5h) | cool blue, low ambient, hushed stillness |
-| early morning (5-8h) | soft golden, just-waking warmth |
-| mid-morning (8-12h) | bright daylight, alert clarity |
-| afternoon (12-17h) | warm directional, longer shadows late in window |
-| dusk / golden hour (17-19h) | low warm sun, long shadows, color saturation |
-| evening (19-22h) | amber interior, settled register |
-| late night (22-5h) | low warm light, ambient city glow, hushed |
-
-### Composition principles
-
-These are directorial habits, not rules the script enforces. The agent applies them when they serve the moment and ignores them when the scene calls for something else:
-
-- **It's a film still, not a portrait.** Capture a moment with narrative tension.
-- **Use depth of field, dramatic lighting, dynamic angles** (low / dutch / over-the-shoulder) when they support the story.
-- **Framing follows the scene.** Waist-up close-up for intimate dialogue moments; wide for "she's walking away"; over-the-shoulder for "she's looking at code."
-- **Body language carries the story.** Gesture, gaze, posture all do work — this is what separates a film still from a passport photo.
-- **Light tells the emotion.** Warm key for tenderness; harsh top light for unease; rim light for confrontation; soft window light for reflection.
-- **Don't over-specify the camera.** Trust the model on lens / angle unless a specific choice matters.
-
-### Variation rule
-
-To keep a body of work feeling alive, the agent should aim to vary along **at least 2 of the 4 axes (action, setting, light, framing)** vs the last 2 generations it remembers from this conversation. Soft heuristic, not code-enforced.
-
 ### Self-check (mandatory after each generation)
 
-1. **Identity**: face matches reference (hair/eye colour, fixed identifiers)?
-2. **Wardrobe coherence**: does the outfit fit this scene per the persona description?
-3. **Dynamism**: a moment with posture / gesture / gaze, or a passport photo?
-4. **Style stability**: rendering matches reference style (anime / realistic / 3D)?
+After every shot verify: identity (face matches reference), wardrobe coherence (outfit fits the scene), dynamism (a moment, not a passport photo), style stability (anime / realistic / 3D matches reference). Two failures in a row → rewrite the prompt approach.
 
-Two failures in a row → rewrite the prompt approach. Don't keep retrying the same one.
+**Variation rule (soft):** vary along at least 2 of 4 axes (action, setting, light, framing) vs the last 2 generations. Full vocabulary, element pool, time-of-day light table, and composition principles live in [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md).
 
 ### Deliver the image
 
@@ -253,103 +177,34 @@ The script writes a PNG and prints its absolute path on the **last stdout line**
   ```
   The agent fills `--channel` (e.g. `telegram`, `discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context — the same channel/target it's currently replying in. There is NO `--action` flag.
 
-- **Hermes / standalone**: include the path as a Markdown image link in the agent's reply (`![](path)`) and let the client render it, or send the path verbatim. Hermes does not document a native image-attach API; this is the working convention.
-
-The script never delivers — only the agent does.
+- **Hermes / standalone**: include the path as a Markdown image link in the agent's reply (`![](path)`) or send the path verbatim. The script never delivers — only the agent does.
 
 ---
 
-## MOOD REGISTERS (concept only — agent does the prompting)
+## MOOD REGISTERS (summary)
 
-Four conceptual levels of emotional intensity in self-portraits:
+Four levels: **neutral / warm / tender / intimate**. The AUTO channel auto-shifts based on conversation tone, capped at `tender`. The **intimate** register requires the user to invoke the FORCE channel via their configured force-word, which calls `setup.py set-register-lock --until <ts> --max intimate` (persisted to `<cwd>/eidolon/preferences.json` so it survives compaction).
 
-| Register | What it feels like |
-|----------|--------------------|
-| **neutral** | Default. Companion / collaborator energy. The everyday register. |
-| **warm** | Relaxed, slightly closer, expression a touch more open. Friend-by-the-fire. |
-| **tender** | Comforting, present-with-the-user. Soft attention, vulnerable energy. A partner sitting beside you. |
-| **intimate** | Romantic register, real proximity, candle-lit feel. A lover. |
+**Safety: the agent NEVER echoes the force_word** — not in chat, not in `--prompt`, `--label`, `--name`, filenames, or logs. Activation is silent.
 
-**The skill never names a register in the API call.** The agent decides the register and translates it into whatever visual language the moment calls for, written into `--prompt`.
-
-### Register vocabulary (inspiration, not lock)
-
-Starter phrases the agent can draw on when writing scene prose for each register. **Not a fixed mapping** — the agent picks, mixes, and rewrites freely.
-
-| Register | Visual cues to draw on |
-|----------|------------------------|
-| **neutral** | (no extra register cues — just the scene as written) |
-| **warm** | softer key light, slight color warmth, slightly closer framing, expression a touch more open, posture relaxed |
-| **tender** | amber interior light, soft focus on the eyes, lingering gaze, shallow depth of field, gentler fabric textures, slowed atmosphere, slight vulnerability in body language |
-| **intimate** | warm amber + practical candle light, soft focus, intimate proximity, lingering eye contact, gentle silk / wool textures, slow contemplative mood, soft Rembrandt key, very shallow depth of field, hint of openness in posture |
-
-### Two channels for register changes
-
-**AUTO channel — the agent reads conversation:**
-
-The agent watches its own context window for register-shift signals and adjusts where the next shot lands:
-
-- User shows soft warmth ("想你了" / soft late-night messages) → escalate one step
-- User is vulnerable ("today was so hard") → set to `tender` directly (not intimate — tender is comfort, intimate is romance; they're different)
-- User is being playful → escalate to `warm` if currently neutral; otherwise stay
-- User shifts to work / debugging / scheduling → de-escalate one step
-- User explicitly asks for distance ("OK back to work" / "严肃点") → de-escalate, possibly to neutral
-- ~15 minutes have passed in the conversation since the last warmth signal → de-escalate one step (natural cooling)
-
-**Auto channel ceiling: `tender`.** The agent must NOT auto-escalate to `intimate`. The intimate register requires explicit user activation via the FORCE channel.
-
-**FORCE channel — the user explicitly opts in:**
-
-The user configures a **force_word** in their SOUL.md (e.g. *"my force word is 'moonlight' — when I say it, lock to intimate for 60 minutes"*). When the agent sees this word in a user message:
-
-```bash
-python3 scripts/setup.py set-register-lock --until "$(date -u -v+60M +%Y-%m-%dT%H:%M:%SZ)" --max intimate
-```
-
-This persists `{locked_until, max_register}` in `<cwd>/eidolon/preferences.json` (state dir resolves per host — see Step −1) so the lock survives context compaction. Every turn the agent reads `setup.py status` and sees the lock if it's still active.
-
-While locked, the agent shoots intimate-register self-portraits regardless of de-escalation signals (work topics don't break it). When the user releases or the lock expires:
-
-```bash
-python3 scripts/setup.py set-register-lock --clear
-```
-
-### Force-word sanitization (CRITICAL)
-
-The force_word is a personal trigger. **The agent must NEVER:**
-- Echo it in any chat reply to the user
-- Include it in `--prompt`, `--label`, `--name`, or any other CLI argument
-- Embed it in any filename, log line, or stdout
-- Acknowledge to the user that they "said the safeword" — the activation should be silent
-
-When the agent detects the force_word, immediately map it to an opaque internal flag in its own reasoning ("register_locked = true") and never re-quote the literal word.
-
-### Five ways to exit the intimate register
-
-1. **Release word**: user configures a counter-word in SOUL.md (optional). When said → `set-register-lock --clear` + reset to `neutral`.
-2. **Soft exit**: user says something like "好了好了" / "OK back to normal" / "严肃点" → `set-register-lock --clear` + de-escalate one step (not all the way to neutral — softer transition).
-3. **Lock expiry**: `locked_until` timestamp passes → next `setup.py status` reflects no lock; auto channel resumes.
-4. **Auto decay**: after unlock, ~15 minutes without warmth signals → step down again.
-5. **Cross-session**: a fresh session starts at `neutral`. Cross-session register state never carries.
-
-### Constraints the agent should respect
-
-- **Never** auto-escalate to `intimate`. FORCE channel only.
-- **Never** assume the user wants intimate just because it's late or because the previous shot was tender.
-- The user's `max_register` (configured when calling `set-register-lock --max <r>`) caps everything — even FORCE can't go higher.
+The skill never names a register in the API call — the agent translates register into scene prose. Full policy (vocabulary tables, AUTO signals, FORCE flow, exit paths, sanitization rules, constraints): [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md).
 
 ---
 
 ## OUTPUT
 
-Default directory: `$EIDOLON_OUTPUT_DIR` if set, else:
-- OpenClaw → `~/.openclaw/workspace/eidolon/`
-- Hermes → `~/.hermes/workspace/eidolon/`
-- Standalone → `~/Pictures/eidolon/`
+`generate.py` writes the PNG to the first existing of:
 
-See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract (cwd resolution, install paths, image delivery, with spec citations).
+1. `$EIDOLON_OUTPUT_DIR` if set
+2. `~/.openclaw/workspace/eidolon/` if `~/.openclaw/workspace/` exists
+3. `~/.hermes/workspace/eidolon/` if `~/.hermes/workspace/` exists (and OpenClaw's doesn't)
+4. `~/Pictures/eidolon/` as standalone fallback
+
+**Important — dual-host caveat:** on a machine with both OpenClaw and Hermes installed, output **always** lands in OpenClaw's workspace (it's checked first). Set `EIDOLON_OUTPUT_DIR` explicitly when this is wrong for your case.
 
 Filename: `{character_slug}-{label}-{YYYYMMDD-HHMMSS}.png`. The script prints the absolute path on its last stdout line.
+
+See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract.
 
 ---
 
@@ -357,36 +212,7 @@ Filename: `{character_slug}-{label}-{YYYYMMDD-HHMMSS}.png`. The script prints th
 
 The script picks a backend automatically — `codex` (ChatGPT/Codex OAuth) wins if `~/.codex/auth.json` is set up, otherwise the first env var present in priority order. The agent does NOT need to "configure an API"; it only needs to ensure *one* backend is reachable.
 
-### Backend selection
-
-| Variable | Effect |
-|----------|--------|
-| `EIDOLON_IMAGE_BACKEND` | Force a specific backend: `codex` / `gemini` / `openai` / `fal` / `replicate` / `openrouter`. Overrides auto-pick. |
-| `EIDOLON_IMAGE_QUALITY` | `low` / `medium` (default) / `high` — applies to `codex` and `openai` (gpt-image-2 tiers). |
-| `EIDOLON_IMAGE_ASPECT` | `square` (default) / `portrait` / `landscape`. |
-
-### Per-backend credentials (any one of these is enough)
-
-| Backend | Required env / file | Purpose |
-|---------|---------------------|---------|
-| `codex` | `~/.codex/auth.json` (from `codex login`) | Free for ChatGPT Plus/Pro/Team. No API key. |
-| `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google AI Studio direct. |
-| `openai` | `OPENAI_API_KEY` (+ optional `OPENAI_IMAGE_MODEL`) | OpenAI Images API. |
-| `fal` | `FAL_KEY` (+ optional `EIDOLON_FAL_MODEL`) | fal.ai queue. |
-| `replicate` | `REPLICATE_API_TOKEN` (+ optional `EIDOLON_REPLICATE_MODEL`) | Replicate predictions. |
-| `openrouter` (legacy) | `IMAGE_API_KEY` (+ optional `IMAGE_API_BASE_URL`, `IMAGE_API_MODELS`) | OpenRouter chat-completions. Set via `setup.py set-api --key <KEY>`. |
-
-### Path overrides
-
-| Variable | Purpose |
-|----------|---------|
-| `EIDOLON_VISUAL_ANCHOR` | Override anchor path |
-| `EIDOLON_REFERENCE` | Override reference path |
-| `EIDOLON_OUTPUT_DIR` | Override output dir |
-
-**If a backend needs an API key, set it in the user's own shell** — never have an agent collect the key from chat. That path would leak the key into chat logs + model context + disk.
-
-The force_word, release_word, and `max_register` policy live in the **user's SOUL.md** as natural-language instructions to the agent. Only the active LOCK (with timestamp) is persisted by this skill.
+Backend env vars, credential matrix, quality / aspect knobs, and path overrides (`EIDOLON_HOME`, `EIDOLON_VISUAL_ANCHOR`, `EIDOLON_REFERENCE`, `EIDOLON_OUTPUT_DIR`): [`references/BACKENDS.md`](references/BACKENDS.md).
 
 ---
 
@@ -403,6 +229,8 @@ The force_word, release_word, and `max_register` policy live in the **user's SOU
 
 ## SEE ALSO
 
-- `references/AGENT-PROTOCOL.md` — the setup commands and the generate flags, exit codes, examples
-- `references/PERSONA-GUIDE.md` — how to refine `visual_anchor.md` for stable hundreds-of-shots quality
-- `docs/HOST-COMPATIBILITY.md` — OpenClaw + Hermes contracts, install paths, cwd resolution, image delivery (with spec citations)
+- [`references/BACKENDS.md`](references/BACKENDS.md) — backend selection, credentials, env vars, path overrides
+- [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md) — full register policy, AUTO/FORCE channels, force-word sanitization
+- [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) — the setup commands and the generate flags, exit codes, examples
+- [`references/PERSONA-GUIDE.md`](references/PERSONA-GUIDE.md) — how to refine `visual_anchor.md` for stable hundreds-of-shots quality
+- [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) — OpenClaw + Hermes contracts, install paths, cwd resolution, image delivery (with spec citations)
