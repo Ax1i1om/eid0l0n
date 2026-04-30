@@ -2,7 +2,7 @@
 """
 EID0L0N (skill name: `eidolon`) — setup toolkit.
 
-6 thin commands. Everything else lives in agent context + SKILL.md prose.
+7 thin commands. Everything else lives in agent context + SKILL.md prose.
 
     setup.py status                                    JSON state dump (incl. register lock + backends)
     setup.py detect-backends [--json]                  Available image-gen backends (auto-pick info)
@@ -13,6 +13,8 @@ EID0L0N (skill name: `eidolon`) — setup toolkit.
                                                        Write env (mode 600) — only needed for openrouter backend
     setup.py set-register-lock {--clear | --until ISO --max R}
                                                        Persist register lock for the FORCE channel
+    setup.py migrate-from-legacy [--from <subdir>] [--force] [--purge]
+                                                       Copy state from legacy ~/.config/eidolon/ into <cwd>/eidolon/
 """
 from __future__ import annotations
 

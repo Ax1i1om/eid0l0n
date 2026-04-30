@@ -153,7 +153,7 @@ Persists FORCE-channel register lock to `<workspace>/eidolon/preferences.json` (
 
 ```json
 {
-  "locked_until": "2026-04-29T18:30:00Z",
+  "locked_until": "<ISO-8601 timestamp, e.g. 2026-05-01T18:30:00Z>",
   "max_register": "intimate"
 }
 ```
@@ -304,7 +304,7 @@ The reference image is auto-attached. The character anchor is auto-prepended. Co
 
 The script writes a PNG, prints the path. Delivery to the user is the agent's job:
 
-- **OpenClaw**: `openclaw message send --media "<path>" --text "<caption>"`
+- **OpenClaw** (canonical clawra form): `openclaw message send --action send --channel "<channel>" --media "<path>" --message "<caption>"`
 - **Hermes / standalone**: `![](<path>)` in the agent's reply, or print the path verbatim.
 
 ---

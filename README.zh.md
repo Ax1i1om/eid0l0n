@@ -229,6 +229,7 @@ agent **永远不会**复述你的强制词。激活是无声的。
 | 命令 | 用途 |
 |------|------|
 | `status` | JSON 状态 dump（含 state_dir、workspace_cwd、register lock、legacy state 标记） |
+| `detect-backends [--json]` | 列出图像生成 backend 并标出哪些可用 |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | 写 visual anchor（不传 flag 就读 stdin） |
 | `save-reference --src PATH` | 收图作为参考（原子写、mode 644） |
 | `set-api --key K [--base-url U] [--models CSV]` | 持久化 API 配置（mode 600） |
@@ -314,7 +315,6 @@ references/                ← 让 Claude/agent 按需加载的文档
   PERSONA-GUIDE.md         ← onboarding 完成后怎么打磨 visual_anchor.md
 assets/                    ← 输出会用到的模板和示例
   persona.example.md       ← 给没有 SOUL.md 的用户的工作示例
-  config.example.json      ← 模型回退链模板（绝无 key）
 ```
 
 ---
@@ -357,7 +357,7 @@ uv run scripts/generate.py \
 
 ## 工程细节
 
-- **单行 frontmatter，Anthropic 极简风。** 顶层只有 `name / description / license / allowed-tools`。OpenClaw 严格解析器和 Hermes agentskills.io 规范两边都过。
+- **极简 frontmatter，符合 AgentSkills 规范。** 顶层是 `name / description / version`，外加一个 `metadata` 块，里面嵌 `hermes`（tags / category / requires_toolsets）和 `openclaw`（os / requires.bins / requires.env / primaryEnv / emoji / homepage）两个段。OpenClaw 严格解析器和 Hermes agentskills.io 规范两边都过。
 - **原子文件操作。** 每个 anchor / reference / env / preferences 写都被 `flock` 包住。reference 图换用 tmp + replace。
 - **重试 + 指数退避。** 每个 model 重试 3 次，遇到 408/429/5xx/超时按指数退避。不可恢复错误（auth、content policy 等）立即换下一个 model。
 - **CRLF 规范化** —— 每次读 Markdown 都先 normalize，Windows 编辑过的 anchor 不会因为路径里多个 `\r` 而坏掉。

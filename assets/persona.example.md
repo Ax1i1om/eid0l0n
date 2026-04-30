@@ -1,13 +1,16 @@
 <!--
-This is an EXAMPLE persona file shipped with eidolon.
-The wizard (scripts/setup.py) generates a real one at ~/.config/eidolon/persona.md.
-You can edit that file directly any time — eidolon will pick up changes on the next run.
+This is an EXAMPLE visual_anchor.md shipped with eidolon.
+At runtime, the agent writes a real one to <workspace>/eidolon/visual_anchor.md
+via `python3 scripts/setup.py save-anchor` (no interactive wizard — the agent
+extracts the visual section from its own SOUL.md context). Edit that file
+directly any time; eidolon re-reads it on every generation.
 
 Optional first-line header: `reference: <absolute-path-to-image>`
-If omitted, $EIDOLON_REFERENCE env var or --reference CLI flag is required.
+`setup.py save-reference` rewrites this header automatically. If omitted,
+$EIDOLON_REFERENCE env var or --reference CLI flag is required.
 -->
 
-reference: ~/.config/eidolon/reference.jpg
+reference: <workspace>/eidolon/reference.jpg
 
 # Persona — Aria
 

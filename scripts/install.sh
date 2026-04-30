@@ -5,9 +5,8 @@
 #   bash scripts/install.sh                  # auto-detect, install everywhere it can
 #   bash scripts/install.sh --openclaw       # OpenClaw only
 #   bash scripts/install.sh --hermes         # Hermes only
-#   bash scripts/install.sh --skip-wizard    # don't auto-run setup.py at the end
 #
-# Idempotent. Safe to re-run.
+# Onboarding is agent-driven (no install-time wizard). Idempotent; safe to re-run.
 
 set -euo pipefail
 
@@ -22,14 +21,12 @@ c_b()   { printf "\033[1m%s\033[0m" "$*"; }
 
 want_openclaw=auto
 want_hermes=auto
-skip_wizard=0
 for arg in "$@"; do
   case "$arg" in
     --openclaw) want_openclaw=yes; want_hermes=no ;;
     --hermes)   want_hermes=yes;   want_openclaw=no ;;
-    --skip-wizard) skip_wizard=1 ;;
     --help|-h)
-      sed -n '2,12p' "$0"
+      sed -n '2,9p' "$0"
       exit 0
       ;;
     *) c_err "unknown flag: $arg"; echo; exit 2 ;;
@@ -109,7 +106,8 @@ if [[ $installed_openclaw -eq 0 && $installed_hermes -eq 0 ]]; then
   c_warn "No host agent detected."; echo
   echo "  To use this skill standalone, set:"
   echo "    export PATH=\"$REPO_ROOT/scripts:\$PATH\""
-  echo "  Then run:    python3 $REPO_ROOT/scripts/setup.py"
+  echo "  Then check state:  python3 $REPO_ROOT/scripts/setup.py status"
+  echo "  And backends:      python3 $REPO_ROOT/scripts/setup.py detect-backends"
   echo
 fi
 

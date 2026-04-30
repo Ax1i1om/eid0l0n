@@ -231,6 +231,7 @@ For the full design, including how the script provides only inspiration phrases 
 | Command | Purpose |
 |---------|---------|
 | `status` | JSON state dump (incl. state_dir, workspace_cwd, register lock, legacy-state flag) |
+| `detect-backends [--json]` | List image-gen backends and which are reachable |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | Write visual anchor (stdin if no flag) |
 | `save-reference --src PATH` | Adopt an image (atomic, mode 644) |
 | `set-api --key K [--base-url U] [--models CSV]` | Persist API config (mode 600) |
@@ -316,7 +317,6 @@ references/                ← docs Claude/agent loads on demand
   PERSONA-GUIDE.md         ← how to refine visual_anchor.md after onboarding
 assets/                    ← templates and example files used in output
   persona.example.md       ← worked example for users without a SOUL.md
-  config.example.json      ← model-chain template (no keys, ever)
 ```
 
 ---
@@ -359,7 +359,7 @@ The script never delivers — only the agent does.
 
 ## Engineering notes
 
-- **Single-line frontmatter, Anthropic-style minimal.** Top-level keys: `name`, `description`, `license`, `allowed-tools`. Compatible with both OpenClaw's strict parser and Hermes' agentskills.io conventions.
+- **Minimal frontmatter, AgentSkills-spec compliant.** Top-level keys: `name`, `description`, `version`, plus a `metadata` block with nested `hermes` (tags, category, requires_toolsets) and `openclaw` (os, requires.bins, requires.env, primaryEnv, emoji, homepage) sections. Compatible with both OpenClaw's strict parser and Hermes' agentskills.io conventions.
 - **Atomic file ops.** `flock` wraps every write to anchor / reference / env / preferences. Tmp + replace for the reference image swap.
 - **Retry with backoff.** 3 attempts per model with exponential backoff on 408/429/5xx/timeout. Non-retryable errors advance to the next model in the chain.
 - **CRLF normalization** at every Markdown read — Windows-edited anchors don't break path parsing.
