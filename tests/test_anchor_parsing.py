@@ -1,7 +1,7 @@
-"""Tests for generate.parse_anchor — parses visual_anchor.md → (text, ref, slug)."""
+"""Tests for state.parse_anchor — parses visual_anchor.md → (text, ref, slug)."""
 from __future__ import annotations
 
-import generate
+import state
 
 
 def test_parse_anchor_with_reference_header(tmp_path):
@@ -15,7 +15,7 @@ def test_parse_anchor_with_reference_header(tmp_path):
         "Body text describing the character.\n"
     )
 
-    text, ref, slug = generate.parse_anchor(anchor)
+    text, ref, slug = state.parse_anchor(anchor)
 
     assert ref == "/tmp/some/reference.png"
     assert "Body text describing the character." in text
@@ -33,7 +33,7 @@ def test_parse_anchor_without_reference_header_returns_none(tmp_path):
         "Just a body, no reference header.\n"
     )
 
-    text, ref, slug = generate.parse_anchor(anchor)
+    text, ref, slug = state.parse_anchor(anchor)
 
     assert ref is None
     assert "Just a body, no reference header." in text
@@ -51,7 +51,7 @@ def test_parse_anchor_body_text_preserved(tmp_path):
         "Paragraph two with details.\n"
     )
 
-    text, _ref, _slug = generate.parse_anchor(anchor)
+    text, _ref, _slug = state.parse_anchor(anchor)
 
     assert "Paragraph one." in text
     assert "Paragraph two with details." in text
@@ -70,7 +70,7 @@ def test_parse_anchor_normalizes_crlf_and_cr_line_endings(tmp_path):
     )
     anchor.write_bytes(raw.encode("utf-8"))
 
-    text, ref, slug = generate.parse_anchor(anchor)
+    text, ref, slug = state.parse_anchor(anchor)
 
     assert ref == "/tmp/x.png"
     # No carriage returns survive normalization.
@@ -91,7 +91,7 @@ def test_parse_anchor_strips_imported_from_header(tmp_path):
         "Body.\n"
     )
 
-    text, _ref, _slug = generate.parse_anchor(anchor)
+    text, _ref, _slug = state.parse_anchor(anchor)
 
     assert "imported_from:" not in text
 
@@ -101,7 +101,7 @@ def test_parse_anchor_slug_falls_back_to_generic_h1(tmp_path):
     anchor = tmp_path / "visual_anchor.md"
     anchor.write_text("# Just A Name\n\nbody\n")
 
-    _text, _ref, slug = generate.parse_anchor(anchor)
+    _text, _ref, slug = state.parse_anchor(anchor)
 
     assert slug == "just_a_name"
 
@@ -111,6 +111,6 @@ def test_parse_anchor_slug_default_when_no_heading(tmp_path):
     anchor = tmp_path / "visual_anchor.md"
     anchor.write_text("body only, no heading\n")
 
-    _text, _ref, slug = generate.parse_anchor(anchor)
+    _text, _ref, slug = state.parse_anchor(anchor)
 
     assert slug == "character"

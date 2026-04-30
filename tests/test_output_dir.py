@@ -1,9 +1,9 @@
-"""Tests for generate.resolve_output_dir — picks where finished images land."""
+"""Tests for state.resolve_output_dir — picks where finished images land."""
 from __future__ import annotations
 
 from pathlib import Path
 
-import generate
+import state
 
 
 def _patch_home(monkeypatch, tmp_home: Path) -> None:
@@ -17,7 +17,7 @@ def test_env_var_wins(tmp_path, monkeypatch):
     monkeypatch.setenv("EIDOLON_OUTPUT_DIR", str(target))
     _patch_home(monkeypatch, tmp_path)
 
-    out = generate.resolve_output_dir()
+    out = state.resolve_output_dir()
 
     assert out == target.resolve()
 
@@ -28,7 +28,7 @@ def test_no_env_no_workspaces_falls_back_to_pictures(tmp_path, monkeypatch):
     _patch_home(monkeypatch, tmp_path)
     # tmp_path has no .openclaw or .hermes — clean state.
 
-    out = generate.resolve_output_dir()
+    out = state.resolve_output_dir()
 
     assert out == tmp_path / "Pictures" / "eidolon"
 
@@ -39,7 +39,7 @@ def test_only_openclaw_workspace_exists(tmp_path, monkeypatch):
     _patch_home(monkeypatch, tmp_path)
     (tmp_path / ".openclaw" / "workspace").mkdir(parents=True)
 
-    out = generate.resolve_output_dir()
+    out = state.resolve_output_dir()
 
     assert out == tmp_path / ".openclaw" / "workspace" / "eidolon"
 
@@ -50,7 +50,7 @@ def test_only_hermes_workspace_exists(tmp_path, monkeypatch):
     _patch_home(monkeypatch, tmp_path)
     (tmp_path / ".hermes" / "workspace").mkdir(parents=True)
 
-    out = generate.resolve_output_dir()
+    out = state.resolve_output_dir()
 
     assert out == tmp_path / ".hermes" / "workspace" / "eidolon"
 
@@ -67,6 +67,6 @@ def test_both_workspaces_exist_openclaw_wins(tmp_path, monkeypatch):
     (tmp_path / ".openclaw" / "workspace").mkdir(parents=True)
     (tmp_path / ".hermes" / "workspace").mkdir(parents=True)
 
-    out = generate.resolve_output_dir()
+    out = state.resolve_output_dir()
 
     assert out == tmp_path / ".openclaw" / "workspace" / "eidolon"

@@ -24,103 +24,35 @@ import os
 import re
 import shutil
 import sys
-from contextlib import contextmanager
-
-# fcntl is POSIX-only. On Windows we degrade to no-op locking — the skill is
-# designed for one agent at a time per workspace, so concurrent writers from a
-# single host are extremely rare. If you need real Windows locking, install
-# portalocker and patch _file_lock.
-try:
-    import fcntl  # type: ignore
-    _HAS_FCNTL = True
-except ImportError:
-    fcntl = None  # type: ignore
-    _HAS_FCNTL = False
 from pathlib import Path
 
-# Share the backend registry and the cwd-derived state dir with generate.py.
-# State dir = <cwd>/eidolon (or $EIDOLON_HOME) — see generate._resolve_state_dir.
+# Make sibling-module imports work whether invoked as ``python3 scripts/setup.py``
+# or ``import setup`` from a test harness.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-try:
-    from generate import (  # type: ignore
-        BACKENDS,
-        CONFIG_DIR,
-        LEGACY_CONFIG_DIR,
-        detect_all,
-        legacy_state_present,
-        load_env_file as _load_gen_env,
-    )
-except Exception:
-    BACKENDS = []
-    CONFIG_DIR = Path.cwd() / "eidolon"
-    LEGACY_CONFIG_DIR = Path.home() / ".config" / "eidolon"
-    def detect_all() -> dict:  # type: ignore
-        return {}
-    def legacy_state_present() -> bool:  # type: ignore
-        return False
-    def _load_gen_env() -> None:  # type: ignore
-        pass
 
-ANCHOR_PATH = CONFIG_DIR / "visual_anchor.md"
-ENV_PATH    = CONFIG_DIR / "env"
-PREFS_PATH  = CONFIG_DIR / "preferences.json"
-LOCK_PATH   = CONFIG_DIR / ".lock"
+from state import (
+    ANCHOR_PATH,
+    CONFIG_DIR,
+    ENV_PATH,
+    LEGACY_CONFIG_DIR,
+    LOCK_PATH,
+    PREFS_PATH,
+    _HAS_FCNTL,
+    _file_lock,
+    _read_text_normalized,
+    env_has_key,
+    fcntl,
+    find_existing_reference,
+    legacy_state_present,
+    load_env_file as _load_gen_env,
+    load_prefs,
+    write_prefs,
+)
+from backends import BACKENDS, detect_all
+
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 REF_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
-
-
-@contextmanager
-def _file_lock():
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    fp = open(LOCK_PATH, "w")
-    try:
-        if _HAS_FCNTL:
-            fcntl.flock(fp, fcntl.LOCK_EX)
-        yield
-    finally:
-        try:
-            if _HAS_FCNTL:
-                fcntl.flock(fp, fcntl.LOCK_UN)
-        finally:
-            fp.close()
-
-
-def _read_text_normalized(path: Path) -> str:
-    return path.read_text().replace("\r\n", "\n").replace("\r", "\n")
-
-
-def find_existing_reference() -> Path | None:
-    for ext in ("jpg", "jpeg", "png", "webp"):
-        p = CONFIG_DIR / f"reference.{ext}"
-        if p.exists():
-            return p
-    return None
-
-
-def env_has_key() -> bool:
-    if not ENV_PATH.exists():
-        return False
-    for line in _read_text_normalized(ENV_PATH).splitlines():
-        if line.strip().startswith("IMAGE_API_KEY="):
-            return bool(line.split("=", 1)[1].strip())
-    return False
-
-
-def load_prefs() -> dict:
-    if not PREFS_PATH.exists():
-        return {}
-    try:
-        return json.loads(_read_text_normalized(PREFS_PATH))
-    except json.JSONDecodeError:
-        return {}
-
-
-def write_prefs(prefs: dict) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with _file_lock():
-        PREFS_PATH.write_text(json.dumps(prefs, indent=2))
-        os.chmod(PREFS_PATH, 0o600)
 
 
 # ─── status ────────────────────────────────────────────────────────────────

@@ -6,8 +6,9 @@ import json
 
 import pytest
 
-import generate
+import backends
 import setup
+import state
 
 
 # Keys actually emitted by cmd_status (scripts/setup.py lines 139-155).
@@ -33,28 +34,40 @@ EXPECTED_KEYS = {
 
 @pytest.fixture
 def isolated_state(tmp_path, monkeypatch, clear_backend_env):
-    """Redirect setup + generate state paths into tmp_path, also block codex auth."""
-    state = tmp_path / "eidolon"
-    state.mkdir()
+    """Redirect state + setup paths into tmp_path, also block codex auth.
+
+    Post-refactor: paths live canonically in `state` module; `setup` re-binds
+    them at import, and helpers like find_existing_reference / legacy_state_present
+    execute in `state`'s scope. We patch BOTH modules so every reader sees tmp_path,
+    and patch CODEX_AUTH_PATH on `backends` (canonical home).
+    """
+    state_dir = tmp_path / "eidolon"
+    state_dir.mkdir()
     legacy = tmp_path / "legacy-config-eidolon"  # never auto-created → legacy_state_present=False
 
-    # Patch every module-level path constant on both modules so cmd_status
-    # reads/writes inside tmp_path.
-    monkeypatch.setattr(generate, "CONFIG_DIR", state)
-    monkeypatch.setattr(generate, "ANCHOR_PATH", state / "visual_anchor.md")
-    monkeypatch.setattr(generate, "ENV_PATH", state / "env")
-    monkeypatch.setattr(generate, "PREFS_PATH", state / "preferences.json")
-    monkeypatch.setattr(generate, "LEGACY_CONFIG_DIR", legacy)
-    monkeypatch.setattr(generate, "CODEX_AUTH_PATH", tmp_path / "no-codex-auth.json")
+    # `state` module is the canonical home of these paths; functions like
+    # find_existing_reference() and legacy_state_present() read state.CONFIG_DIR
+    # and state.LEGACY_CONFIG_DIR from their own globals.
+    monkeypatch.setattr(state, "CONFIG_DIR", state_dir)
+    monkeypatch.setattr(state, "ANCHOR_PATH", state_dir / "visual_anchor.md")
+    monkeypatch.setattr(state, "ENV_PATH", state_dir / "env")
+    monkeypatch.setattr(state, "PREFS_PATH", state_dir / "preferences.json")
+    monkeypatch.setattr(state, "LOCK_PATH", state_dir / ".lock")
+    monkeypatch.setattr(state, "LEGACY_CONFIG_DIR", legacy)
 
-    monkeypatch.setattr(setup, "CONFIG_DIR", state)
-    monkeypatch.setattr(setup, "ANCHOR_PATH", state / "visual_anchor.md")
-    monkeypatch.setattr(setup, "ENV_PATH", state / "env")
-    monkeypatch.setattr(setup, "PREFS_PATH", state / "preferences.json")
-    monkeypatch.setattr(setup, "LOCK_PATH", state / ".lock")
+    # `backends` owns CODEX_AUTH_PATH after the refactor.
+    monkeypatch.setattr(backends, "CODEX_AUTH_PATH", tmp_path / "no-codex-auth.json")
+
+    # `setup` re-binds the path names at import time; cmd_status reads its OWN
+    # ANCHOR_PATH global (not state.ANCHOR_PATH), so patch those bindings too.
+    monkeypatch.setattr(setup, "CONFIG_DIR", state_dir)
+    monkeypatch.setattr(setup, "ANCHOR_PATH", state_dir / "visual_anchor.md")
+    monkeypatch.setattr(setup, "ENV_PATH", state_dir / "env")
+    monkeypatch.setattr(setup, "PREFS_PATH", state_dir / "preferences.json")
+    monkeypatch.setattr(setup, "LOCK_PATH", state_dir / ".lock")
     monkeypatch.setattr(setup, "LEGACY_CONFIG_DIR", legacy)
 
-    return state
+    return state_dir
 
 
 def _run_status_capture(capsys) -> dict:

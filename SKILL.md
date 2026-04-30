@@ -1,7 +1,7 @@
 ---
 name: eidolon
 description: Generate one self-portrait or persona image of the active agent with locked character consistency. Use whenever the agent should appear as itself, attach a face, or send a mood/scene shot.
-version: 0.6.1
+version: 0.7.0
 homepage: https://github.com/Ax1i1om/eid0l0n
 metadata: {"hermes":{"tags":["image-generation","persona","self-portrait","character-consistency"],"category":"creative","requires_toolsets":["terminal"]},"openclaw":{"os":["darwin","linux"],"requires":{"bins":["python3"],"env":["OPENAI_API_KEY","GEMINI_API_KEY","FAL_KEY","REPLICATE_API_TOKEN","IMAGE_API_KEY"]},"primaryEnv":"IMAGE_API_KEY"}}
 ---
