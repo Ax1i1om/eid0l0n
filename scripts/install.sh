@@ -73,6 +73,13 @@ DEV_CRUFT_ITEMS=(tests .pytest_cache .venv)
 
 copy_bundle() {
   local dest="$1"
+  # Defense in depth: refuse to operate on anything that doesn't look like
+  # a skill install dir. ${dest:?} catches empty/unset; this catches "wrong
+  # directory entirely" (e.g. a future bug derives dest from a CLI flag).
+  if [[ "$dest" != */skills/"$SKILL_NAME" ]]; then
+    c_err "  refuse: install dest does not end with /skills/$SKILL_NAME → $dest"; echo
+    exit 2
+  fi
   mkdir -p "$dest"
   # Idempotent install: wipe known-shipped items (current + legacy) and any
   # dev cruft before copying so removed files don't linger on re-install. We
@@ -147,7 +154,6 @@ if [[ $installed_openclaw -eq 0 && $installed_hermes -eq 0 ]]; then
   echo "  To use this skill standalone, set:"
   echo "    export PATH=\"$REPO_ROOT/scripts:\$PATH\""
   echo "  Then check state:  python3 $REPO_ROOT/scripts/setup.py status"
-  echo "  And backends:      python3 $REPO_ROOT/scripts/setup.py detect-backends"
   echo
 fi
 
@@ -174,16 +180,12 @@ echo "  you ask the agent to generate an image — it will read SOUL.md, ask"
 echo "  whether you have a reference image, and offer to generate one for"
 echo "  approval if you don't."
 echo
-echo "  Pick an image-gen backend (any ONE is enough — auto-detected at run time):"
-echo "    • $(c_ok "codex")      FREE for ChatGPT Plus/Pro/Team — run \`codex login\` once"
-echo "    • $(c_ok "gemini")     export GEMINI_API_KEY=..."
-echo "    • $(c_ok "openai")     export OPENAI_API_KEY=..."
-echo "    • $(c_ok "fal")        export FAL_KEY=..."
-echo "    • $(c_ok "replicate")  export REPLICATE_API_TOKEN=..."
-echo "    • $(c_ok "openrouter") python3 $REPO_ROOT/scripts/setup.py set-api --key <YOUR_KEY>"
-echo
-echo "  See what's currently detected:"
-echo "    python3 $REPO_ROOT/scripts/setup.py detect-backends"
+echo "  Image generation:"
+echo "    • $(c_ok "ChatGPT Plus/Pro/Team")  built-in via Codex — run \`codex login\` once,"
+echo "                              then call generate.py with --use-codex"
+echo "    • $(c_ok "Anyone else")            your agent uses its own image-gen tool"
+echo "                              (MCP / curl + your API key / local ComfyUI)"
+echo "                              on the instructions JSON from generate.py"
 echo
 echo "  Inspect state any time:"
 echo "    python3 $REPO_ROOT/scripts/setup.py status"

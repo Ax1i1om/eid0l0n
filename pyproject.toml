@@ -1,3 +1,35 @@
+[project]
+name = "eidolon"
+version = "0.8.0"
+description = "Self-onboarding image-generation skill for AI agents — locks one recurring character across all generations. Built for OpenClaw and Hermes."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Ax1i1om" }]
+keywords = ["agent-skill", "image-generation", "persona", "character-consistency", "openclaw", "hermes", "agentskills"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# Runtime dependencies are declared inline in scripts/generate.py via PEP 723
+# (`# /// script` block) so `uv run scripts/generate.py` works without
+# requiring a separate venv install. eid0l0n is consumed as a skill bundle
+# (copied into ~/.openclaw/skills/ or ~/.hermes/skills/), not as a Python
+# package on PyPI — so no [project.dependencies] here.
+
+[project.urls]
+Homepage = "https://github.com/Ax1i1om/eid0l0n"
+Repository = "https://github.com/Ax1i1om/eid0l0n"
+Changelog = "https://github.com/Ax1i1om/eid0l0n/blob/main/CHANGELOG.md"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

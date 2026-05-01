@@ -32,18 +32,16 @@ def state_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def clear_backend_env(monkeypatch):
-    """Clear all backend-related env vars so tests start from a known state."""
+def clear_image_env(monkeypatch):
+    """Clear EIDOLON_* env vars that affect generation knobs / output paths.
+
+    eid0l0n 0.8+ does not detect any image-API env vars itself — the host
+    agent's own tool handles those. We only clear knobs that affect the
+    skill's own behavior (output dir override, codex tuning).
+    """
     for var in (
-        "EIDOLON_IMAGE_BACKEND",
-        "OPENAI_API_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "GOOGLE_AI_STUDIO_KEY",
-        "FAL_KEY",
-        "FAL_API_KEY",
-        "REPLICATE_API_TOKEN",
-        "IMAGE_API_KEY",
-        "OPENROUTER_API_KEY",
+        "EIDOLON_IMAGE_QUALITY",
+        "EIDOLON_IMAGE_ASPECT",
+        "EIDOLON_OUTPUT_DIR",
     ):
         monkeypatch.delenv(var, raising=False)

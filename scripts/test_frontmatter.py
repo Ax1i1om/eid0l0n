@@ -34,8 +34,11 @@ SKILL_PATH = Path(__file__).resolve().parent.parent / "SKILL.md"
 
 REQUIRED_TOP_LEVEL = ["name", "description", "version", "homepage", "metadata"]
 REQUIRED_HERMES = ["tags", "category", "requires_toolsets"]
-REQUIRED_OPENCLAW = ["os", "requires", "primaryEnv"]
-REQUIRED_OPENCLAW_REQUIRES = ["bins", "env"]
+# `primaryEnv` and `requires.env` are optional in the OpenClaw spec — eid0l0n
+# 0.8+ no longer requires any image-API env var (the host agent uses its own
+# tool, and the built-in Codex backend reads ~/.codex/auth.json, not env).
+REQUIRED_OPENCLAW = ["os", "requires"]
+REQUIRED_OPENCLAW_REQUIRES = ["bins"]
 
 
 def main() -> int:
@@ -121,9 +124,9 @@ def main() -> int:
     print(f"  name:        {fm['name']}")
     print(f"  version:     {fm['version']}")
     print(f"  homepage:    {fm['homepage']}")
-    print(f"  metadata.hermes.tags:         {parsed_json['hermes']['tags']}")
-    print(f"  metadata.openclaw.os:         {parsed_json['openclaw']['os']}")
-    print(f"  metadata.openclaw.primaryEnv: {parsed_json['openclaw']['primaryEnv']}")
+    print(f"  metadata.hermes.tags:    {parsed_json['hermes']['tags']}")
+    print(f"  metadata.openclaw.os:    {parsed_json['openclaw']['os']}")
+    print(f"  metadata.openclaw.bins:  {parsed_json['openclaw']['requires'].get('bins', [])}")
     return 0
 
 

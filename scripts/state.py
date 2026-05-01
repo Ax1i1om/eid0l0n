@@ -110,6 +110,12 @@ def _read_text_normalized(path: Path) -> str:
 
 
 def load_env_file() -> None:
+    """Load ``<cwd>/eidolon/env`` into os.environ if present.
+
+    Optional convenience for users who want to scope arbitrary env vars (e.g.,
+    keys their image-gen tool reads) to a workspace. eid0l0n itself does not
+    require any env file to be present.
+    """
     if not ENV_PATH.exists():
         return
     for line in _read_text_normalized(ENV_PATH).splitlines():
@@ -118,15 +124,6 @@ def load_env_file() -> None:
             continue
         k, v = line.split("=", 1)
         os.environ.setdefault(k.strip(), v.strip().strip("'").strip('"'))
-
-
-def env_has_key() -> bool:
-    if not ENV_PATH.exists():
-        return False
-    for line in _read_text_normalized(ENV_PATH).splitlines():
-        if line.strip().startswith("IMAGE_API_KEY="):
-            return bool(line.split("=", 1)[1].strip())
-    return False
 
 
 # ─── anchor + reference + output ───────────────────────────────────────────
@@ -228,6 +225,23 @@ def _file_lock():
             fp.close()
 
 
+def atomic_write_text(path: Path, text: str, mode: int = 0o644) -> None:
+    """Atomic text write: tmp → chmod → replace.
+
+    SKILL.md claims "atomic writes" for anchor / preferences / reference;
+    this helper is the implementation. A crash mid-write leaves the
+    destination untouched (the tmp file is orphaned but harmless).
+
+    Caller is responsible for holding ``_file_lock()`` if cross-process
+    serialization is needed — atomicity here is per-write, not per-section.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text)
+    os.chmod(tmp, mode)
+    tmp.replace(path)
+
+
 def load_prefs() -> dict:
     if not PREFS_PATH.exists():
         return {}
@@ -238,7 +252,5 @@ def load_prefs() -> dict:
 
 
 def write_prefs(prefs: dict) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with _file_lock():
-        PREFS_PATH.write_text(json.dumps(prefs, indent=2))
-        os.chmod(PREFS_PATH, 0o600)
+        atomic_write_text(PREFS_PATH, json.dumps(prefs, indent=2), mode=0o600)

@@ -22,9 +22,9 @@
 
 - **对话连续性。** 深夜温柔消息 → tender register、暖琥珀光。Debug 中 → 专注、屏幕反光。走在回家路上 → 远景、回头看。模型读得懂房间里的气氛。
 - **一个角色，千张照片。** 同样的发色、瞳色、标志性配饰 —— 跨越完全不同的场景、光线、情绪强度。
-- **没有需要学的旋钮。** CLI 总共 7 个 setup 命令 + 9 个 generate flag。这就是全部 API。智能在 agent 写的 prompt 里，不在你拨的开关上。
+- **没有需要学的旋钮。** CLI 总共 5 个 setup 命令 + 9 个 generate flag。这就是全部 API。智能在 agent 写的 prompt 里，不在你拨的开关上。
 
-- **直接复用你已经有的图像生成能力。** eid0l0n 自动检测 6 家供应商（Codex/ChatGPT OAuth、Gemini、OpenAI、fal.ai、Replicate、OpenRouter）。如果你已经 `codex login` 过（ChatGPT Plus/Pro/Team **免费**），不用再配任何额外 API key。
+- **用你已经有的图像生成能力。** eid0l0n 不内置任何图像 API 代码，唯一例外是 ChatGPT Plus/Pro/Team 用户的白嫖通道 Codex（`codex login` 一次，再加 `--use-codex` 即可）。其他所有路径 —— GPT Image、Nano Banana（Gemini 2.5 Flash Image）、Grok、fal、Replicate、MiniMax、通义万相、AiHubMix / OneAPI / 任意 OpenAI 兼容中转、本地 ComfyUI —— 都由你的 agent 自己用它配好的工具（MCP / `curl` / 等等）来调，eid0l0n 只递一份"指令 JSON"给它。明天又出新 API？不用改项目，agent 自己学会就行。
 
 ---
 
@@ -36,16 +36,15 @@ git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
 bash scripts/install.sh
 
-# 2. 下面 6 个 backend 任意一个可用即可（脚本会自动挑选）：
-#    • codex      — 跑一次 `codex login`（ChatGPT Plus/Pro/Team 免费）
-#    • gemini     — export GEMINI_API_KEY=...
-#    • openai     — export OPENAI_API_KEY=...
-#    • fal        — export FAL_KEY=...
-#    • replicate  — export REPLICATE_API_TOKEN=...
-#    • openrouter — python3 scripts/setup.py set-api --key <YOUR_KEY>
+# 2. 让你的 agent 能生图。两条路任选其一：
+#    • ChatGPT Plus/Pro/Team — 跑一次 `codex login`，eid0l0n 内置的 Codex
+#      backend 帮你免费出图。调 generate.py 时加 --use-codex。
+#    • 其他所有 (GPT Image、Nano Banana、fal、Replicate、MiniMax、通义万相、
+#      AiHubMix / OneAPI 中转、本地 ComfyUI…) — 你的 agent 已经会调它们。
+#      eid0l0n 给它一份"指令 JSON"，agent 用自己的工具把图存到指定路径。
 #
-# 验一下当前检测到了什么:
-python3 scripts/setup.py detect-backends
+# 看一眼当前状态:
+python3 scripts/setup.py status
 
 # 3. 完事。下次让 agent 显示自己的时候，会在 chat 里跟你来回 3-5 轮把参考图定下来。
 ```
@@ -174,20 +173,20 @@ agent **可能**自己决定显形的时刻:
                                                                   │
 ┌─────────────────────────────────────────────────────────────────┘
 │  EID0L0N SKILL 层（这个仓库）
-│  setup.py — 7 个薄命令
-│  generate.py — 图像生成；只保证 character anchor + reference image
-│  SKILL.md — agent 的导演手册（思维框架，不是强制模板）
+│  setup.py        — 5 个薄命令
+│  generate.py     — 拼 prompt + 输出指令 JSON / 或 --use-codex 直接出图
+│  codex_backend.py — 唯一内置的图像 API 路径（ChatGPT OAuth）
+│  SKILL.md        — agent 的导演手册（思维框架，不是强制模板）
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG 层（<cwd>/eidolon/，mode 600 —— <cwd> 按 host 解析：OpenClaw 用 agent
+│  CONFIG 层（<cwd>/eidolon/ —— <cwd> 按 host 解析：OpenClaw 用 agent
 │  workspace（`~/.openclaw/workspace`），Hermes CLI 用 `pwd`，Hermes Gateway 默认 `~`
 │  除非设置了 `MESSAGING_CWD`。详见 docs/HOST-COMPATIBILITY.md。）
 │  visual_anchor.md — 角色描述（agent 从自己 SOUL 抽出来一次性写好）
 │  reference.png    — 标准参考图（用户给的，或者生成 + 审过的）
-│  env              — IMAGE_API_KEY，mode 600
-│  preferences.json — register lock 状态（活过 context 压缩）
-│  （每个 persona 独立子目录：同一台机器跑多个 agent 也不会互相覆盖）
+│  preferences.json — register lock 状态，mode 600（活过 context 压缩）
+│  （每个 workspace 独立子目录：OpenClaw 和 Hermes 同机共存不冲突）
 └──────────────────────────────────────────────────────────────────
 ```
 
@@ -226,15 +225,13 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 ## CLI
 
-**`scripts/setup.py`** —— 7 个命令:
+**`scripts/setup.py`** —— 5 个命令:
 
 | 命令 | 用途 |
 |------|------|
-| `status` | JSON 状态 dump（含 state_dir、workspace_cwd、register lock、legacy state 标记） |
-| `detect-backends [--json]` | 列出图像生成 backend 并标出哪些可用 |
+| `status` | JSON 状态 dump（含 anchor / reference / codex 可用性 / register lock / state + output dir / legacy state 标记） |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | 写 visual anchor（不传 flag 就读 stdin） |
 | `save-reference --src PATH` | 收图作为参考（原子写、mode 644） |
-| `set-api --key K [--base-url U] [--models CSV]` | 持久化 API 配置（mode 600） |
 | `set-register-lock {--clear \| --until ISO --max R}` | 持久化 FORCE 通道 register 锁 |
 | `migrate-from-legacy [--from <subdir>] [--force] [--purge]` | 把老版 `~/.config/eidolon/`（或其某个子目录）的状态复制进 `<cwd>/eidolon/` |
 
@@ -247,10 +244,11 @@ agent **永远不会**复述你的强制词。激活是无声的。
 | `--bootstrap` | 不需要参考图;配 `--reference` 则迭代候选 |
 | `--reference PATH` | 临时覆盖保存的参考图 |
 | `--anchor PATH` | 临时覆盖 visual_anchor.md |
-| `--backend NAME` | 强制指定 backend（codex/gemini/openai/fal/replicate/openrouter） |
+| `--use-codex` | 用内置 Codex backend (ChatGPT OAuth) 直接出图，不再输出指令 JSON |
 | `--list-scenes` | 列出内置场景预设 |
-| `--list-backends [--json]` | 列出 backend 检测结果 |
-| `--doctor` | 状态诊断（含 backend 表） |
+| `--doctor` | 状态诊断（anchor / reference / codex 可用性 / output dir） |
+
+默认行为（不带 `--use-codex`）：输出一份指令 JSON，里面有"已经注入 anchor 的 prompt"、参考图路径、目标输出路径；agent 用自己的工具按这份 JSON 出图。
 
 **没有 mood / register / safeword / context-time 这种 flag。** 这些概念都在 SKILL.md prose 里;agent 直接在 `--prompt` 里按灵感词汇库挑合适的语言写进去。
 
@@ -260,24 +258,20 @@ agent **永远不会**复述你的强制词。激活是无声的。
 
 ## 配置
 
-解析顺序（first hit wins）:
+eid0l0n 自身**不需要**任何图像 API 配置 —— 那是 agent 自己工具的事。剩下的只有路径覆盖和 Codex 模式调参。
 
-1. CLI flag
-2. 环境变量（`EIDOLON_*`）
-3. `<cwd>/eidolon/env`（mode 600，由 `setup.py set-api` 写）。`<cwd>` 是宿主当前 cwd —— 按 host / mode 不同会落在不同位置，详见 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) 里的 per-host/per-mode 表（OpenClaw = `~/.openclaw/workspace`，Hermes CLI = `pwd`，Hermes Gateway 默认 `~` 除非设置 `MESSAGING_CWD`）。`EIDOLON_HOME` 可整目录覆盖。
-4. 默认值
+| 变量 | 必需 | 默认 | 谁用 |
+|------|:----:|------|------|
+| `EIDOLON_HOME` |  | `<cwd>/eidolon`（按 host 解析；见上面 Step −1） | state + output 目录覆盖 |
+| `EIDOLON_VISUAL_ANCHOR` |  | `<state-dir>/visual_anchor.md` | anchor 路径覆盖 |
+| `EIDOLON_REFERENCE` |  | （从 anchor 的 `reference:` 头解析） | reference 路径覆盖 |
+| `EIDOLON_OUTPUT_DIR` |  | 与 state 同目录 | 仅覆盖 output |
+| `EIDOLON_IMAGE_QUALITY` |  | `medium` | 仅 `--use-codex` —— `low` / `medium` / `high` |
+| `EIDOLON_IMAGE_ASPECT` |  | `square` | 仅 `--use-codex` —— `square` / `landscape` / `portrait` |
 
-| 变量 | 必需 | 默认 |
-|------|:----:|------|
-| `IMAGE_API_KEY` | ✓ | — |
-| `IMAGE_API_BASE_URL` |  | `https://openrouter.ai/api/v1` |
-| `IMAGE_API_MODELS` |  | `google/gemini-2.5-flash-image-preview, ...` |
-| `EIDOLON_HOME` |  | 直接指向状态目录（开发/测试用的 escape hatch）；默认 `<cwd>/eidolon` |
-| `EIDOLON_VISUAL_ANCHOR` |  | `<state-dir>/visual_anchor.md` |
-| `EIDOLON_REFERENCE` |  | （从 anchor 的 `reference:` 头解析） |
-| `EIDOLON_OUTPUT_DIR` |  | `~/Pictures/eidolon/`（或宿主 workspace 如果检测到） |
+`<cwd>` 按 host 解析 —— 详见 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md)（OpenClaw = `~/.openclaw/workspace`，Hermes CLI = `pwd`，Hermes Gateway 默认 `~` 除非设置 `MESSAGING_CWD`）。
 
-**API key 永远不会从这个仓库的任何文件读取。绝对不会。**
+**API key 永远不会从这个仓库的任何文件读取。绝对不会。** Agent 自己的图像生成工具（或者 `codex login` 走 Codex 内置通道）才是凭证唯一存在的地方。
 
 强制词、释放词、`max_register` 上限策略 —— 这些都写在**用户自己的 SOUL.md 里**，作为给 agent 的自然语言指令，**不写在任何 eidolon 配置文件里**。
 
@@ -309,12 +303,15 @@ agent **永远不会**复述你的强制词。激活是无声的。
 ```
 SKILL.md                   ← agent 协议（agent 第一次调用时读）
 scripts/
-  setup.py                 ← 薄命令（status, save-anchor 等）
-  generate.py              ← 图像生成;--prompt / --state / --bootstrap / 等
+  setup.py                 ← 5 个薄命令（status / save-anchor / save-reference / …）
+  generate.py              ← 拼 prompt + 输出指令 JSON / --use-codex 直接出图
+  codex_backend.py         ← 唯一内置的图像 API 路径（ChatGPT OAuth）
+  state.py                 ← 路径、anchor 解析、prefs、文件锁
   install.sh               ← 跨宿主安装脚本
 references/                ← 让 Claude/agent 按需加载的文档
   AGENT-PROTOCOL.md        ← CLI 参考 + onboarding 伪代码
   PERSONA-GUIDE.md         ← onboarding 完成后怎么打磨 visual_anchor.md
+  MOOD-REGISTERS.md        ← register 政策、AUTO/FORCE 通道、强制词消毒
 docs/
   HOST-COMPATIBILITY.md    ← 各 host 的安装路径 / cwd 契约 / 图片交付（带 spec 引用）
 assets/                    ← 输出会用到的模板和示例
@@ -332,16 +329,19 @@ echo "在这里描述你的角色" | python3 scripts/setup.py save-anchor --name
 # 提供参考图:
 python3 scripts/setup.py save-reference --src ~/Pictures/my-ref.png
 
-# 用内置场景预设生成:
-uv run scripts/generate.py --state street_dusk
-
-# 或者自己写:
+# 出图（指令模式 —— 输出 JSON，由你自己的图像工具按 JSON 出图）:
 uv run scripts/generate.py \
   --prompt "rooftop at golden hour, hand at temple, looking back over the shoulder, jacket open" \
   --label rooftop-look-back
+
+# 或者你是 ChatGPT Plus/Pro/Team —— 直接走 Codex 出图:
+uv run scripts/generate.py \
+  --prompt "rooftop at golden hour, …" \
+  --label rooftop-look-back \
+  --use-codex
 ```
 
-脚本在 stdout 最后一行打印输出图的绝对路径。`--doctor` 显示当前状态。
+指令模式下 `generate.py` 输出一份 JSON，里面有 `full_prompt`、`reference_image`、`output_path` —— 你（或你的图像工具）按这份 JSON 把图存到那个路径。带 `--use-codex` 时脚本自己出图，最后一行 stdout 打印保存路径。`--doctor` 显示当前状态。
 
 ---
 
@@ -366,12 +366,14 @@ uv run scripts/generate.py \
 
 ## 工程细节
 
-- **单行 frontmatter，双 host 兼容。** 顶层 key：`name`、`description`、`version`、`homepage`，再加一个 `metadata` 单行 JSON 对象，里面包 `hermes.{tags, category, requires_toolsets}` 和 `openclaw.{os, requires.{bins, env}, primaryEnv}`。单行 JSON 的写法同时满足 OpenClaw 严格解析器（按 [`docs.openclaw.ai/tools/skills`](https://docs.openclaw.ai/tools/skills) 的 "only single-line frontmatter keys, metadata as single-line JSON" 约束）和 Hermes 的 YAML flow-style 解析（agentskills.io 兼容）。一份 SKILL.md 同时跑两个 host。
-- **原子文件操作。** 每个 anchor / reference / env / preferences 写都被 `flock` 包住。reference 图换用 tmp + replace。
-- **重试 + 指数退避。** 每个 model 重试 3 次，遇到 408/429/5xx/超时按指数退避。不可恢复错误（auth、content policy 等）立即换下一个 model。
+- **单行 frontmatter，双 host 兼容。** 顶层 key：`name`、`description`、`version`、`homepage`，再加一个 `metadata` 单行 JSON 对象，里面包 `hermes.{tags, category, requires_toolsets}` 和 `openclaw.{os, requires.{bins}}`。单行 JSON 的写法同时满足 OpenClaw 严格解析器（按 [`docs.openclaw.ai/tools/skills`](https://docs.openclaw.ai/tools/skills) 的 "only single-line frontmatter keys, metadata as single-line JSON" 约束）和 Hermes 的 YAML flow-style 解析（agentskills.io 兼容）。一份 SKILL.md 同时跑两个 host。
+- **原子文件操作。** 每个 anchor / reference / preferences 写都被 `flock` 包住。reference 图换用 tmp + replace。
+- **路径安全。** `generate.py` 拒绝任何 reference / output 路径逃出 workspace —— 防止恶意 anchor 的 `reference:` 行把 `~/.aws/credentials` 偷偷喂进 agent 工具的 POST body。
+- **`--use-codex` 重试 + 指数退避。** 3 次重试，遇到瞬态错误（超时 / 连接重置 / rate limit）按指数退避。其他 backend 是 agent 自己工具的事，它有自己的重试策略。
 - **CRLF 规范化** —— 每次读 Markdown 都先 normalize，Windows 编辑过的 anchor 不会因为路径里多个 `\r` 而坏掉。
 - **PIL 在生成时才 fail-fast，不在 import 时。** `--help` / `--doctor` / `--list-scenes` 没装 pillow 也能跑。
 - **锁活过 context 压缩。** FORCE 通道的 register 锁把 `{locked_until, max_register}` 写到 `<cwd>/eidolon/preferences.json`（`<cwd>` 按 host 解析，详见 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md)），所以一段 60 分钟的 intimate session 不会因为 agent 上下文被对话中途总结而丢失。
+- **多 host 共存自动隔离。** 因为 `<cwd>` 按 host 解析，OpenClaw 和 Hermes 同机安装时各自有自己的 state、anchor、reference、output 目录 —— 零共享文件。
 
 ---
 
@@ -379,8 +381,8 @@ uv run scripts/generate.py \
 
 欢迎 PR。两条**绝不妥协**的设计原则:
 
-1. **永远不让 secret 进仓库。** API key 只活在 `<cwd>/eidolon/env`（mode 600，`<cwd>` 按 host 解析），由用户在**自己的 shell** 里写。skill 显式拒绝从 chat 里收 key。
-2. **代码只保证角色一致性。** 场景 / 动作 / 心情 / register / 光影 / 构图相关的语言都放进 SKILL.md prose 作为灵感词汇。Agent 写 prompt。如果一个 PR 加了 `--register` flag 或者把 register overlay 写死进 `generate.py`，我会直接 close。
+1. **永远不让 secret 进仓库。** eid0l0n 不从任何地方读 API key —— agent 自己的图像生成工具管凭证，内置的 Codex 通道读 `~/.codex/auth.json`（由 `codex` CLI 维护，不是我们）。skill 显式拒绝从 chat 里收 key。
+2. **代码只保证角色一致性 + workspace 隔离。** 场景 / 动作 / 心情 / register / 光影 / 构图相关的语言都放进 SKILL.md prose 作为灵感词汇。Agent 写 prompt。Agent 选图像 API。如果一个 PR 把 backend 写死回来、加 `--register` flag、或者把 register overlay 写死进 `generate.py`，我会直接 close。
 
 如果你想给 `SCENES` 加场景预设，写成**起点**（简洁、含 framing），不要写成模板。真正的价值在 SKILL.md 的灵感词汇里，不在代码侧的默认值里。
 

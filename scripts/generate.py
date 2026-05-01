@@ -7,42 +7,44 @@
 # ]
 # ///
 """
-EID0L0N (skill name: `eidolon`) — generate one image, anchored to the persona + reference.
+EID0L0N (skill name: `eidolon`) — produce one image, anchored to the persona.
 
-Code only enforces character consistency. Scene / action / mood / register / lighting /
-composition language is in --prompt, written by the agent per SKILL.md guidance.
+Two modes:
+
+  Instructions mode (DEFAULT):
+      Prints a JSON blob with anchor_clause, full_prompt, reference_image,
+      output_path, and instructions. The HOST AGENT renders the image using
+      its own image-gen tool (MCP / curl / local ComfyUI / etc.) and writes
+      it to output_path. eid0l0n does not call any external image API.
+
+  --use-codex:
+      Render via the built-in Codex (ChatGPT OAuth) backend and save the PNG.
+      The only backend shipped as code, for ChatGPT Plus/Pro/Team users who
+      want zero-config white-label image generation.
 
 Usage:
     uv run generate.py --prompt "<scene>" --label "<short>"
     uv run generate.py --state idle | work_focused | street_dusk | ...
-    uv run generate.py --prompt P --label L --bootstrap                  # no reference yet
-    uv run generate.py --prompt P --label L --bootstrap --reference P    # iterate on a candidate
-    uv run generate.py --prompt P --label L --reference PATH             # one-shot ref override
-    uv run generate.py --backend gemini                                  # pick a specific backend
+    uv run generate.py --prompt P --bootstrap                   # no reference yet
+    uv run generate.py --prompt P --bootstrap --reference P     # iterate on a candidate
+    uv run generate.py --prompt P --reference PATH              # one-shot ref override
+    uv run generate.py --prompt P --use-codex                   # render via Codex
     uv run generate.py --list-scenes
-    uv run generate.py --list-backends [--json]
     uv run generate.py --doctor
 
-Backend auto-detection (priority order, first available wins):
-    1. codex      — Codex/ChatGPT OAuth via ~/.codex/auth.json (no API key, free for Plus/Pro/Team)
-    2. gemini     — GEMINI_API_KEY / GOOGLE_API_KEY (Google AI Studio direct)
-    3. openai     — OPENAI_API_KEY (OpenAI Images API, gpt-image-2)
-    4. fal        — FAL_KEY (fal.ai — flux, gpt-image-2, nano-banana, etc.)
-    5. replicate  — REPLICATE_API_TOKEN (Replicate — flux, ideogram, etc.)
-    6. openrouter — IMAGE_API_KEY / OPENROUTER_API_KEY (legacy default)
-
-Override with EIDOLON_IMAGE_BACKEND=<name> or --backend <name>.
+The script ENFORCES character consistency. Scene / action / mood / register /
+lighting / composition is in --prompt, written by the agent per SKILL.md.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
-# Make sibling-module imports work whether invoked as ``uv run generate.py``,
-# ``python3 scripts/generate.py``, or ``import generate`` from a test harness.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from state import (
@@ -56,13 +58,6 @@ from state import (
     resolve_anchor_path,
     resolve_output_dir,
     resolve_reference_path,
-)
-from backends import (
-    BACKEND_BY_NAME,
-    BACKENDS,
-    _PIL_OK,
-    detect_all,
-    select_backend,
 )
 
 
@@ -86,56 +81,124 @@ SCENES = {
 
 # ─── prompt assembly ───────────────────────────────────────────────────────
 
-def build_prompt(scene_text: str, persona_text: str, has_reference: bool, iterate_on_reference: bool) -> str:
-    """Only the character-consistency clause is enforced. Scene/composition is the agent's job."""
+def build_anchor_clause(has_reference: bool, iterate_on_reference: bool) -> str:
+    """The character-consistency clause — the project's only invariant.
+
+    Built here (script-side) so every backend, including agent-written ones,
+    receives an already-anchored prompt and can't accidentally drift the
+    character by paraphrasing or skipping the lock.
+    """
     if iterate_on_reference:
-        anchor_clause = (
+        return (
             "Iterate on the attached image. Keep the character consistent with the description below "
             "(face structure, hair, eyes, identifying features), but APPLY the requested changes from the prompt. "
             "Treat the attached image as a starting point, not a rigid template."
         )
-    elif has_reference:
-        anchor_clause = (
+    if has_reference:
+        return (
             "Preserve the character EXACTLY as in the reference image — face structure, hair, eyes, "
             "skin, build, fixed identifiers, and art style must all match."
         )
-    else:
-        anchor_clause = (
-            "Establish a canonical reference portrait of the character described below. "
-            "All future shots will be anchored to this image, so prioritize clean visibility "
-            "of face, hair, eyes, and identifying details."
-        )
+    return (
+        "Establish a canonical reference portrait of the character described below. "
+        "All future shots will be anchored to this image, so prioritize clean visibility "
+        "of face, hair, eyes, and identifying details."
+    )
+
+
+def build_prompt(scene_text: str, persona_text: str, has_reference: bool, iterate_on_reference: bool) -> str:
+    """Compose the final prompt: anchor clause + persona description + scene."""
+    anchor_clause = build_anchor_clause(has_reference, iterate_on_reference)
     return f"{anchor_clause}\n\nCharacter description:\n{persona_text}\n\n{scene_text.strip()}"
 
 
-# ─── top-level dispatch ────────────────────────────────────────────────────
+def build_output_path(slug: str, label: str, out_dir: Path) -> Path:
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    safe = re.sub(r"[^a-zA-Z0-9_-]", "", label.replace(" ", "_"))[:30] or "shot"
+    return out_dir / f"{slug}-{safe}-{ts}.png"
 
-def generate(
-    scene_text: str,
-    label: str,
-    anchor_path: Path,
+
+def _mode(has_reference: bool, iterate_on_reference: bool) -> str:
+    if iterate_on_reference:
+        return "iterate_on_reference"
+    if has_reference:
+        return "with_reference"
+    return "bootstrap"
+
+
+# ─── path safety ───────────────────────────────────────────────────────────
+
+def _under(p: Path, root: Path) -> bool:
+    try:
+        p.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _validate_paths(ref_path: Path | None) -> None:
+    """Reject reference paths that escape the workspace.
+
+    ref_path is anchor-controlled — a poisoned ``visual_anchor.md`` could
+    set ``reference: ~/.aws/credentials`` and the agent's image-gen tool
+    would base64-encode and POST it. We reject any reference that resolves
+    outside the workspace (cwd) before the prompt leaves the script.
+
+    out_dir is NOT validated here: ``EIDOLON_OUTPUT_DIR`` is a documented
+    user-set escape hatch ("point PNGs at a separate disk while state stays
+    in the workspace") and the user is trusted with their own filesystem.
+    """
+    if ref_path is None:
+        return
+    workspace = CONFIG_DIR.parent
+    if not _under(ref_path, workspace):
+        sys.exit(f"error: reference image escapes workspace: {ref_path!r}")
+
+
+# ─── instructions mode ─────────────────────────────────────────────────────
+
+def emit_instructions(
+    full_prompt: str,
+    anchor_clause: str,
     ref_path: Path | None,
-    iterate_on_reference: bool,
-    backend: str,
-) -> str | None:
-    if not _PIL_OK:
-        sys.exit("error: pillow not installed. Run via `uv run` or: pip install pillow openai")
-    persona_text, _, slug = parse_anchor(anchor_path)
-    full_prompt = build_prompt(scene_text, persona_text, has_reference=ref_path is not None, iterate_on_reference=iterate_on_reference)
-    out_dir = resolve_output_dir()
+    output_path: Path,
+    mode: str,
+) -> int:
+    payload = {
+        "anchor_clause":   anchor_clause,
+        "full_prompt":     full_prompt,
+        "reference_image": str(ref_path) if ref_path else None,
+        "output_path":     str(output_path),
+        "mode":            mode,
+        "instructions": (
+            "Generate ONE image using whichever image-gen tool you have configured "
+            "(MCP image tool / curl + your API key / local ComfyUI / etc.). "
+            "The full_prompt is already anchored — do NOT paraphrase it. "
+            "If reference_image is set, attach it to the request so the character matches. "
+            "Save the resulting PNG (or any image format — eid0l0n will normalize) to output_path. "
+            "Then confirm the file exists at output_path."
+        ),
+    }
+    print(json.dumps(payload, indent=2))
+    return 0
 
-    _display, _detect, gen = BACKEND_BY_NAME[backend]
-    out = gen(full_prompt, ref_path, slug, label, out_dir)
-    if out is None:
-        return None
-    print(out)
-    return str(out)
+
+# ─── codex mode ────────────────────────────────────────────────────────────
+
+def render_via_codex(full_prompt: str, ref_path: Path | None, output_path: Path) -> int:
+    import codex_backend
+    ok = codex_backend.generate(full_prompt, ref_path, output_path)
+    if not ok:
+        return 1
+    print(str(output_path))
+    return 0
 
 
 # ─── auxiliary commands ────────────────────────────────────────────────────
 
 def cmd_doctor() -> int:
     load_env_file()
+    import codex_backend
     print("eidolon doctor")
     print(f"  skill dir:    {SKILL_DIR}")
     print(f"  config dir:   {CONFIG_DIR}{'  (exists)' if CONFIG_DIR.exists() else '  (missing)'}")
@@ -159,23 +222,15 @@ def cmd_doctor() -> int:
         print(f"  register lock:(none)")
     print(f"  output dir:   {resolve_output_dir()}")
     print()
-    print("  backends (priority order, first available is auto-pick):")
-    selected = None
-    forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
-    detections = detect_all()
-    for name, display, _detect, _gen in BACKENDS:
-        info = detections[name]
-        ok = "✓" if info.get("available") else "✗"
-        if info.get("available") and selected is None:
-            selected = name
-        extra = f"  ({info.get('credit')})" if info.get("available") else f"  — {info.get('missing','')}"
-        print(f"    {ok} {name:11s} {display}{extra}")
-    if forced:
-        print(f"\n  EIDOLON_IMAGE_BACKEND={forced}  (forced override)")
-    elif selected:
-        print(f"\n  auto-selected:        {selected}")
+    info = codex_backend.detect()
+    if info.get("available"):
+        print(f"  codex (built-in):  ✓  {info.get('credit','')}")
     else:
-        print(f"\n  auto-selected:        (none — configure one)")
+        print(f"  codex (built-in):  ✗  {info.get('missing','')}")
+    print()
+    print("  Other backends: handled by the host agent. eid0l0n does not")
+    print("  detect or call them. The agent uses its own image-gen tool")
+    print("  (MCP / curl / local ComfyUI) on the instructions JSON.")
     return 0
 
 
@@ -187,53 +242,25 @@ def cmd_list_scenes() -> int:
     return 0
 
 
-def cmd_list_backends(as_json: bool) -> int:
-    load_env_file()
-    detections = detect_all()
-    forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
-    auto = next((name for name, _d, det, _g in BACKENDS if det().get("available")), None)
-    if as_json:
-        print(json.dumps({
-            "selected":  forced or auto or "",
-            "forced":    bool(forced),
-            "available": [name for name, info in detections.items() if info.get("available")],
-            "details":   detections,
-        }, indent=2))
-    else:
-        print("eidolon image-gen backends (priority order):\n")
-        for name, display, _det, _gen in BACKENDS:
-            info = detections[name]
-            ok = "✓" if info.get("available") else "✗"
-            extra = f"  ({info.get('credit')})" if info.get("available") else f"  — {info.get('missing','')}"
-            print(f"  {ok} {name:11s} {display}{extra}")
-        if forced:
-            print(f"\nEIDOLON_IMAGE_BACKEND={forced}  (forced override)")
-        elif auto:
-            print(f"\nauto-selected: {auto}")
-    return 0
-
-
 # ─── main ──────────────────────────────────────────────────────────────────
 
 def main() -> int:
     load_env_file()
-    p = argparse.ArgumentParser(prog="eidolon", description="Generate one persona-anchored image.")
+    p = argparse.ArgumentParser(prog="eidolon", description="Produce one persona-anchored image.")
     p.add_argument("--prompt", "-p", help="Full scene/action/composition text — written by the agent")
     p.add_argument("--state",  "-s", help="Built-in scene shortcut key (see --list-scenes)")
     p.add_argument("--label",  "-l", default="shot", help="Filename label")
     p.add_argument("--anchor",       help="Override visual_anchor.md path")
     p.add_argument("--reference",    help="Override reference image path (per-call)")
     p.add_argument("--bootstrap", action="store_true", help="No reference image required (or iterate on one with --reference)")
-    p.add_argument("--backend",      help=f"Force backend ({', '.join(BACKEND_BY_NAME)}). Overrides EIDOLON_IMAGE_BACKEND.")
+    p.add_argument("--use-codex", action="store_true",
+                   help="Render via the built-in Codex (ChatGPT OAuth) backend instead of emitting instructions for the agent.")
     p.add_argument("--list-scenes", action="store_true")
-    p.add_argument("--list-backends", action="store_true")
-    p.add_argument("--json", action="store_true", help="Use with --list-backends for machine-readable output")
     p.add_argument("--doctor", action="store_true")
     args = p.parse_args()
 
-    if args.doctor:         return cmd_doctor()
-    if args.list_scenes:    return cmd_list_scenes()
-    if args.list_backends:  return cmd_list_backends(args.json)
+    if args.doctor:        return cmd_doctor()
+    if args.list_scenes:   return cmd_list_scenes()
 
     if args.prompt:
         scene_text, label = args.prompt, args.label
@@ -248,7 +275,7 @@ def main() -> int:
         return 1
 
     anchor_path = resolve_anchor_path(args.anchor)
-    _, anchor_ref, _ = parse_anchor(anchor_path)
+    persona_text, anchor_ref, slug = parse_anchor(anchor_path)
 
     iterate_on_reference = False
     if args.bootstrap:
@@ -264,8 +291,18 @@ def main() -> int:
         if ref_path is None:
             sys.exit("error: no reference image. Either pass --bootstrap (initial portrait) or run: setup.py save-reference --src <path>")
 
-    backend = select_backend(args.backend)
-    return 0 if generate(scene_text, label, anchor_path, ref_path, iterate_on_reference, backend) else 1
+    _validate_paths(ref_path)
+    out_dir = resolve_output_dir()
+    output_path = build_output_path(slug, label, out_dir)
+
+    has_reference = ref_path is not None
+    anchor_clause = build_anchor_clause(has_reference, iterate_on_reference)
+    full_prompt = build_prompt(scene_text, persona_text, has_reference, iterate_on_reference)
+    mode = _mode(has_reference, iterate_on_reference)
+
+    if args.use_codex:
+        return render_via_codex(full_prompt, ref_path, output_path)
+    return emit_instructions(full_prompt, anchor_clause, ref_path, output_path, mode)
 
 
 if __name__ == "__main__":

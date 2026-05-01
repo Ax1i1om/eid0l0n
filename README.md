@@ -22,9 +22,9 @@ What that buys you:
 
 - **Conversational continuity.** A late-night warm message → tender register, soft amber. A debugging session → focused, screen-glow. A walk home → wide shot, head turned. The model reads the room.
 - **One persona, a thousand frames.** Same hair, same eyes, same identifiers — across radically different scenes, lighting, and emotional registers.
-- **No knobs to learn.** The CLI has 7 setup commands and 9 generate flags. That's the whole API. The intelligence lives in the prompt the agent writes, not in flags you twiddle.
+- **No knobs to learn.** The CLI has 5 setup commands and 9 generate flags. That's the whole API. The intelligence lives in the prompt the agent writes, not in flags you twiddle.
 
-- **Use the image-gen you already have.** eid0l0n auto-detects across 6 providers (Codex/ChatGPT OAuth, Gemini, OpenAI, fal.ai, Replicate, OpenRouter). If you've already run `codex login` (FREE for ChatGPT Plus/Pro/Team), there's nothing else to configure.
+- **Use whatever image-gen you already have.** eid0l0n ships zero image-API code, with one exception: the built-in Codex backend for ChatGPT Plus/Pro/Team users (`codex login` once, then `--use-codex`). For everything else — GPT Image, Nano Banana (Gemini 2.5 Flash Image), Grok, fal, Replicate, MiniMax, 通义万相, AiHubMix / OneAPI / any OpenAI-compatible relay, local ComfyUI — your agent uses its own image-gen tool (MCP / `curl` / etc.) on the instructions JSON eid0l0n hands it. New API tomorrow? Same thing.
 
 ---
 
@@ -36,16 +36,16 @@ git clone https://github.com/Ax1i1om/eid0l0n.git
 cd eid0l0n
 bash scripts/install.sh
 
-# 2. Make sure ONE image-gen backend is reachable. Any one of:
-#    • codex      — run `codex login` once (FREE for ChatGPT Plus/Pro/Team)
-#    • gemini     — export GEMINI_API_KEY=...
-#    • openai     — export OPENAI_API_KEY=...
-#    • fal        — export FAL_KEY=...
-#    • replicate  — export REPLICATE_API_TOKEN=...
-#    • openrouter — python3 scripts/setup.py set-api --key <YOUR_KEY>
+# 2. Make sure your agent can actually generate images. Any of:
+#    • ChatGPT Plus/Pro/Team — run `codex login` once. eid0l0n's built-in
+#      Codex backend renders for free. Use --use-codex when calling generate.py.
+#    • Anything else (GPT Image, Nano Banana, fal, Replicate, MiniMax,
+#      通义万相, AiHubMix/OneAPI relays, local ComfyUI, …) — your agent
+#      already knows how to use it. eid0l0n hands it an instructions JSON;
+#      the agent renders to the requested output_path with its own tool.
 #
-# Confirm what's detected:
-python3 scripts/setup.py detect-backends
+# Inspect state any time:
+python3 scripts/setup.py status
 
 # 3. Done. Now ask your agent to show itself.
 #    Onboarding happens in chat — across 3-5 turns, agent + user iterate
@@ -176,20 +176,21 @@ You can tilt how proactive the agent is by adding **one line** to your SOUL.md:
                                                                   │
 ┌─────────────────────────────────────────────────────────────────┘
 │  EID0L0N SKILL  (this repo)
-│  setup.py — 7 thin commands
-│  generate.py — image generation; only enforces character anchor + reference image
-│  SKILL.md — the agent's directorial handbook (mental scaffolds, no forced templates)
+│  setup.py        — 5 thin commands
+│  generate.py     — emits instructions JSON for the agent's own image tool
+│                    (or, with --use-codex, renders directly via ChatGPT OAuth)
+│  codex_backend.py — the only built-in image API; everything else is the agent's
+│  SKILL.md        — the agent's directorial handbook (mental scaffolds, no forced templates)
 └──────────────────────────────────────────────┬─────────────────┘
                                                 │
 ┌───────────────────────────────────────────────┘
-│  CONFIG  (<cwd>/eidolon/, mode 600 — <cwd> resolves per host: OpenClaw uses
+│  CONFIG  (<cwd>/eidolon/ — <cwd> resolves per host: OpenClaw uses
 │           the agent workspace, Hermes CLI uses pwd, Hermes Gateway defaults
 │           to ~ unless MESSAGING_CWD is set. See docs/HOST-COMPATIBILITY.md.)
 │  visual_anchor.md — character description (written once by agent from its SOUL)
 │  reference.png    — canonical reference image (saved or generated + approved)
-│  env              — IMAGE_API_KEY, mode 600
-│  preferences.json — register lock state (survives context compaction)
-│  (one dir per persona — multiple agents on one machine never collide)
+│  preferences.json — register lock state, mode 600 (survives context compaction)
+│  (one dir per workspace — OpenClaw and Hermes co-installed never collide)
 └──────────────────────────────────────────────────────────────────
 ```
 
@@ -228,15 +229,13 @@ For the full design, including how the script provides only inspiration phrases 
 
 ## CLI
 
-**`scripts/setup.py`** — 7 commands:
+**`scripts/setup.py`** — 5 commands:
 
 | Command | Purpose |
 |---------|---------|
-| `status` | JSON state dump (incl. state_dir, workspace_cwd, register lock, legacy-state flag) |
-| `detect-backends [--json]` | List image-gen backends and which are reachable |
+| `status` | JSON state dump (anchor / reference / codex availability / register lock / state + output dir / legacy-state flag) |
 | `save-anchor [--text T \| --from-file F] [--name NAME]` | Write visual anchor (stdin if no flag) |
 | `save-reference --src PATH` | Adopt an image (atomic, mode 644) |
-| `set-api --key K [--base-url U] [--models CSV]` | Persist API config (mode 600) |
 | `set-register-lock {--clear \| --until ISO --max R}` | Persist FORCE-channel register lock |
 | `migrate-from-legacy [--from <subdir>] [--force] [--purge]` | Copy state from legacy `~/.config/eidolon/` (or one of its subdirs) into `<cwd>/eidolon/` |
 
@@ -249,10 +248,11 @@ For the full design, including how the script provides only inspiration phrases 
 | `--bootstrap` | No reference required; with `--reference`, iterate on a candidate |
 | `--reference PATH` | Override saved reference for this call |
 | `--anchor PATH` | Override visual_anchor.md for this call |
-| `--backend NAME` | Force specific backend (codex/gemini/openai/fal/replicate/openrouter) |
+| `--use-codex` | Render via the built-in Codex backend (ChatGPT OAuth) instead of emitting instructions JSON |
 | `--list-scenes` | Print built-in scene shortcuts |
-| `--list-backends [--json]` | Print backend detection results |
-| `--doctor` | State diagnostic (includes backend table) |
+| `--doctor` | State diagnostic (anchor / reference / codex availability / output dir) |
+
+Default behavior (no `--use-codex`): emit an instructions JSON with the anchored prompt, reference path, and output path; the agent renders via its own tool.
 
 **No mood / register / safeword / context-time CLI flags.** Those live in SKILL.md prose; the agent embeds appropriate language directly in `--prompt` per the inspiration vocabularies.
 
@@ -262,24 +262,20 @@ See [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) for the full 
 
 ## Configuration
 
-Resolution order (first hit wins):
+eid0l0n itself requires **zero** image-API config — the agent's own tool handles that. The only env knobs are path overrides and Codex-mode tuning.
 
-1. CLI flags
-2. Environment variables (`EIDOLON_*`)
-3. `<cwd>/eidolon/env` (mode 600, written by `setup.py set-api`). `<cwd>` is the host's current working directory — see [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the per-host/per-mode breakdown (OpenClaw = `~/.openclaw/workspace`, Hermes CLI = `pwd`, Hermes Gateway = `~` unless `MESSAGING_CWD` is set). `EIDOLON_HOME` overrides the dir entirely.
-4. Sensible defaults
+| Variable | Required | Default | Used by |
+|----------|:--------:|---------|---------|
+| `EIDOLON_HOME` |  | `<cwd>/eidolon` (host-resolved per Step −1) | state + output dir override |
+| `EIDOLON_VISUAL_ANCHOR` |  | `<state-dir>/visual_anchor.md` | anchor path override |
+| `EIDOLON_REFERENCE` |  | (resolved from anchor's `reference:` header) | reference path override |
+| `EIDOLON_OUTPUT_DIR` |  | same as state dir | output-only override |
+| `EIDOLON_IMAGE_QUALITY` |  | `medium` | `--use-codex` only — `low` / `medium` / `high` |
+| `EIDOLON_IMAGE_ASPECT` |  | `square` | `--use-codex` only — `square` / `landscape` / `portrait` |
 
-| Variable | Required | Default |
-|----------|:--------:|---------|
-| `IMAGE_API_KEY` | ✓ | — |
-| `IMAGE_API_BASE_URL` |  | `https://openrouter.ai/api/v1` |
-| `IMAGE_API_MODELS` |  | `google/gemini-2.5-flash-image-preview, ...` |
-| `EIDOLON_HOME` |  | full state-dir override (dev/test escape hatch); default is `<cwd>/eidolon` |
-| `EIDOLON_VISUAL_ANCHOR` |  | `<state-dir>/visual_anchor.md` |
-| `EIDOLON_REFERENCE` |  | (resolved from anchor's `reference:` header) |
-| `EIDOLON_OUTPUT_DIR` |  | `~/Pictures/eidolon/` (or host workspace if detected) |
+`<cwd>` resolves per host — see [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the per-host/per-mode breakdown (OpenClaw = `~/.openclaw/workspace`, Hermes CLI = `pwd`, Hermes Gateway = `~` unless `MESSAGING_CWD` is set).
 
-**API keys are never read from any file in this repo. Period.**
+**API keys are never read from any file in this repo. Period.** The agent's own image-gen tool (or `codex login` for the built-in path) is the only place credentials live.
 
 The force_word, release_word, and `max_register` policy live in **the user's SOUL.md** as natural-language instructions to the agent, not in any eidolon config file.
 
@@ -311,12 +307,15 @@ The "EID" stays pure (the soul). The "0L0N" is electrified (the form). One word 
 ```
 SKILL.md                   ← agent protocol (read on first invocation)
 scripts/
-  setup.py                 ← thin commands (status, save-anchor, etc.)
-  generate.py              ← image generation; --prompt / --state / --bootstrap / etc.
+  setup.py                 ← 5 thin commands (status, save-anchor, save-reference, …)
+  generate.py              ← prompt assembly + instructions JSON / --use-codex render
+  codex_backend.py         ← the only built-in image-API path (ChatGPT OAuth)
+  state.py                 ← paths, anchor parsing, prefs, file locks
   install.sh               ← cross-host installer
 references/                ← docs Claude/agent loads on demand
   AGENT-PROTOCOL.md        ← CLI reference + onboarding pseudocode
   PERSONA-GUIDE.md         ← how to refine visual_anchor.md after onboarding
+  MOOD-REGISTERS.md        ← register policy, AUTO/FORCE channels, sanitization
 docs/
   HOST-COMPATIBILITY.md    ← per-host install path / cwd contract / image delivery (spec-cited)
 assets/                    ← templates and example files used in output
@@ -334,16 +333,19 @@ echo "describe your character here" | python3 scripts/setup.py save-anchor --nam
 # Provide a reference image:
 python3 scripts/setup.py save-reference --src ~/Pictures/my-ref.png
 
-# Generate from a built-in scene preset:
-uv run scripts/generate.py --state street_dusk
-
-# Or write your own:
+# Generate (instructions mode — emits JSON; render with your own image tool):
 uv run scripts/generate.py \
   --prompt "rooftop at golden hour, hand at temple, looking back over the shoulder, jacket open" \
   --label rooftop-look-back
+
+# Or, if you have ChatGPT Plus/Pro/Team — render directly via Codex:
+uv run scripts/generate.py \
+  --prompt "rooftop at golden hour, …" \
+  --label rooftop-look-back \
+  --use-codex
 ```
 
-The script prints the absolute output path on its last stdout line. `--doctor` shows current state.
+In instructions mode, `generate.py` prints a JSON blob with `full_prompt`, `reference_image`, and `output_path` — you (or your image tool) render to that path. With `--use-codex`, the script does the render itself and prints the saved path on the last stdout line. `--doctor` shows current state.
 
 ---
 
@@ -368,12 +370,14 @@ The script never delivers — only the agent does.
 
 ## Engineering notes
 
-- **Single-line frontmatter, dual-host compatible.** Top-level keys: `name`, `description`, `version`, `homepage`, plus `metadata` as a single-line JSON object containing `hermes.{tags, category, requires_toolsets}` and `openclaw.{os, requires.{bins, env}, primaryEnv}` blocks. Single-line JSON satisfies OpenClaw's strict parser (per [`docs.openclaw.ai/tools/skills`](https://docs.openclaw.ai/tools/skills): "supports single-line frontmatter keys only, with metadata as a single-line JSON object") AND parses cleanly as YAML flow-style for Hermes (per [agentskills.io](https://agentskills.io)). The skill therefore works in both hosts from a single SKILL.md.
-- **Atomic file ops.** `flock` wraps every write to anchor / reference / env / preferences. Tmp + replace for the reference image swap.
-- **Retry with backoff.** 3 attempts per model with exponential backoff on 408/429/5xx/timeout. Non-retryable errors advance to the next model in the chain.
+- **Single-line frontmatter, dual-host compatible.** Top-level keys: `name`, `description`, `version`, `homepage`, plus `metadata` as a single-line JSON object containing `hermes.{tags, category, requires_toolsets}` and `openclaw.{os, requires.{bins}}` blocks. Single-line JSON satisfies OpenClaw's strict parser (per [`docs.openclaw.ai/tools/skills`](https://docs.openclaw.ai/tools/skills): "supports single-line frontmatter keys only, with metadata as a single-line JSON object") AND parses cleanly as YAML flow-style for Hermes (per [agentskills.io](https://agentskills.io)). The skill therefore works in both hosts from a single SKILL.md.
+- **Atomic file ops.** `flock` wraps every write to anchor / reference / preferences. Tmp + replace for the reference image swap.
+- **Path safety.** `generate.py` rejects reference and output paths that escape the workspace, so a malicious anchor `reference:` line can't sneak `~/.aws/credentials` into the prompt the agent's tool POSTs.
+- **`--use-codex` retry with backoff.** 3 attempts with exponential backoff on transient errors (timeout / connection reset / rate limit). Other backends are the agent's tool, which has its own retry policy.
 - **CRLF normalization** at every Markdown read — Windows-edited anchors don't break path parsing.
 - **PIL fail-fast at generation time, not at import.** `--help` / `--doctor` / `--list-scenes` work without pillow installed.
 - **Lock survives compaction.** FORCE-channel register lock writes `{locked_until, max_register}` to `<cwd>/eidolon/preferences.json` (see [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for how `<cwd>` resolves per host) so a 60-minute intimate-register session isn't lost when the agent's context gets summarized mid-conversation.
+- **Multi-host coexistence is automatic.** Because `<cwd>` resolves per host, OpenClaw and Hermes co-installed on the same machine each get their own state, anchor, reference, and output dir — zero shared files.
 
 ---
 
@@ -381,8 +385,8 @@ The script never delivers — only the agent does.
 
 PRs welcome. Two design rules I won't compromise on:
 
-1. **No secrets in the repo, ever.** API key lives only in `<cwd>/eidolon/env` (mode 600), written by the user in their own shell. The skill explicitly refuses to acknowledge a key passed via chat.
-2. **Code only enforces character consistency.** Scene / action / mood / register / lighting / composition language goes in SKILL.md prose as inspiration. The agent writes the prompt. If a PR adds a `--register` flag or hardcodes register overlays into `generate.py`, I'll close it.
+1. **No secrets in the repo, ever.** eid0l0n does not read API keys from anywhere — the agent's own image-gen tool handles credentials, and the built-in Codex backend reads `~/.codex/auth.json` (managed by the `codex` CLI, not by us). The skill explicitly refuses to acknowledge a key passed via chat.
+2. **Code only enforces character consistency + workspace isolation.** Scene / action / mood / register / lighting / composition language goes in SKILL.md prose as inspiration. The agent writes the prompt. The agent picks the image API. If a PR re-adds backend hardcoding, a `--register` flag, or register overlays into `generate.py`, I'll close it.
 
 If you want to contribute scene presets to `SCENES`, write them as starting points (terse, framing-aware), not as templates. Real value is in the SKILL.md vocabularies, not in code-side defaults.
 

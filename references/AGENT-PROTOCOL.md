@@ -1,6 +1,6 @@
 # Agent protocol — CLI reference
 
-eidolon exposes **7 setup commands** and 1 generation script. Mood / register / lock / decay logic is **not** in the CLI as a state machine — the agent tracks AUTO-channel transitions in its own context window per SKILL.md prose. The one exception is the FORCE-channel register lock, which is persisted to `preferences.json` so it survives context compaction (see `set-register-lock`). Code only enforces character consistency.
+eidolon exposes **5 setup commands** and 1 generation script. Mood / register / lock / decay logic is **not** in the CLI as a state machine — the agent tracks AUTO-channel transitions in its own context window per SKILL.md prose. The one exception is the FORCE-channel register lock, which is persisted to `preferences.json` so it survives context compaction (see `set-register-lock`). Code only enforces character consistency + workspace isolation.
 
 State lives at `<cwd>/eidolon/`, where `<cwd>` is the host's current working directory. The exact value differs per host and mode:
 
@@ -13,18 +13,16 @@ State lives at `<cwd>/eidolon/`, where `<cwd>` is the host's current working dir
 
 `EIDOLON_HOME=/some/path` overrides the dir entirely (always wins; dev/test escape hatch). Run `setup.py migrate-from-legacy [--from <subdir>]` to bring forward state from the legacy `~/.config/eidolon/` tree. See [`docs/HOST-COMPATIBILITY.md`](../docs/HOST-COMPATIBILITY.md) for full per-host contract with spec citations.
 
-## Backend auto-detection
+## Image generation
 
-The script auto-picks one of 6 image-gen backends in priority order. Run `setup.py detect-backends [--json]` to enumerate; force a specific one with `EIDOLON_IMAGE_BACKEND=<name>` or `--backend <name>`.
+eid0l0n does not ship a backend selector. Two paths exist:
 
-| # | Backend | What it needs | Notes |
-|---|---------|---------------|-------|
-| 1 | `codex` | `~/.codex/auth.json` (from `codex login`) | **Free** for ChatGPT Plus/Pro/Team. Routes through Codex Responses API → `image_generation` tool. |
-| 2 | `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google AI Studio direct, free tier available. |
-| 3 | `openai` | `OPENAI_API_KEY` (+ optional `OPENAI_IMAGE_MODEL`) | OpenAI Images API, gpt-image-2. |
-| 4 | `fal` | `FAL_KEY` (+ optional `EIDOLON_FAL_MODEL`) | fal.ai queue API. |
-| 5 | `replicate` | `REPLICATE_API_TOKEN` (+ optional `EIDOLON_REPLICATE_MODEL`) | Replicate predictions. |
-| 6 | `openrouter` | `IMAGE_API_KEY` (legacy — set via `setup.py set-api`) | OpenRouter chat-completions. |
+| Path | What it is | When |
+|------|------------|------|
+| **Instructions mode (default)** | `generate.py` prints a JSON blob with `full_prompt`, `reference_image`, `output_path`, `mode`, `instructions`. The agent renders the image using its own image-gen tool (MCP image plugin / `curl` + agent's API key / local ComfyUI / etc.) and writes to `output_path`. | Always available. The agent already knows how to call its own image API; eid0l0n just provides the anchored prompt. |
+| **`--use-codex`** | Built-in Codex (ChatGPT OAuth) backend. Reads `~/.codex/auth.json` (from `codex login`), calls Codex Responses API → `image_generation` tool, writes the PNG to `output_path`, prints the path on the last stdout line. | ChatGPT Plus / Pro / Team users who want zero-config rendering. |
+
+The only image API eid0l0n ships code for is Codex — because its OAuth + JWT + tool-call protocol cannot be reasonably re-derived by an agent on its own. Every other provider (GPT Image / Nano Banana / Grok / fal / Replicate / MiniMax / 通义万相 / OpenAI-compatible relays / ComfyUI) is the agent's tool's job.
 
 ---
 
@@ -35,7 +33,8 @@ The script auto-picks one of 6 image-gen backends in priority order. Run `setup.
                     │ skill invoked   │
                     └────────┬────────┘
                              ▼
-                  setup.py status   →  JSON {anchor_exists, reference_exists, api_key_set}
+                  setup.py status   →  JSON {anchor_exists, reference_exists,
+                                             codex_available, register_*, …}
                              │
               ┌──────────────┴──────────────┐
               ▼                             ▼
@@ -53,7 +52,8 @@ The script auto-picks one of 6 image-gen backends in priority order. Run `setup.
                             │                               │
                             ▼                               ▼
                      save-reference             generate.py --bootstrap
-                     STOP                       show + ask, STOP
+                     STOP                       (instructions JSON OR --use-codex)
+                                                show + ask, STOP
                                                             │
                                             ┌───────────────┼─────────────┐
                                             ▼               ▼             ▼
@@ -75,44 +75,29 @@ Read-only state dump. Returns:
 {
   "anchor_exists": false,
   "reference_exists": false,
-  "api_key_set": false,
   "anchor_path": "",
   "reference_path": "",
   "register_locked_until": "",
   "register_max": "",
-  "backend_available": true,
-  "backends_available": ["codex"],
-  "backend_selected": "codex",
-  "backend_forced": false,
+  "codex_available": true,
+  "codex_credit": "free for ChatGPT Plus/Pro/Team",
+  "codex_missing": "",
   "state_dir": "/path/to/workspace/eidolon",
+  "output_dir": "/path/to/workspace/eidolon",
   "workspace_cwd": "/path/to/workspace",
   "legacy_state_present": false,
   "legacy_config_dir": ""
 }
 ```
 
-Run this **first** every turn. Route from the JSON. Note: `api_key_set` is now informational only (it tracks the legacy `IMAGE_API_KEY`); the agent should branch on `backend_available` instead. If `legacy_state_present` is `true`, persona files exist under the legacy `~/.config/eidolon/` tree — call `migrate-from-legacy [--from <subdir>]` to bring them forward into the current workspace's state dir.
+Run this **first** every turn. Route from the JSON.
 
-The `workspace_cwd` field reports the actual cwd the script was invoked from — this varies per host/mode (see [`docs/HOST-COMPATIBILITY.md`](../docs/HOST-COMPATIBILITY.md)). On Hermes Gateway it may be `~` unless `MESSAGING_CWD` is configured.
-
-## `setup.py detect-backends [--json]`
-
-Lists which of the 6 image-gen backends are reachable. Use `--json` for machine-readable output (the agent reads `selected` to know what auto-pick chose, and `available` for alternatives).
-
-```bash
-python3 scripts/setup.py detect-backends --json
-# {
-#   "selected": "codex",
-#   "forced": false,
-#   "available": ["codex", "gemini"],
-#   "details": {
-#     "codex":      {"available": true, "credit": "free for ChatGPT Plus/Pro/Team", "models": ["gpt-image-2"]},
-#     "gemini":     {"available": true, "credit": "free tier available", "models": ["gemini-2.5-flash-image-preview"]},
-#     "openai":     {"available": false, "missing": "OPENAI_API_KEY env var"},
-#     ...
-#   }
-# }
-```
+- `anchor_exists` / `reference_exists` drive the onboarding state machine above.
+- `codex_available` is `true` iff `~/.codex/auth.json` exists with a valid (non-expired) token. When `true`, the agent can use `generate.py --use-codex` for zero-config rendering. When `false`, the agent must use its own image-gen tool against the instructions JSON from default-mode `generate.py`.
+- `register_locked_until` / `register_max` reflect any active FORCE-channel lock — the agent honors this regardless of conversation drift until the lock expires.
+- `legacy_state_present` is `true` iff persona files exist under `~/.config/eidolon/` (a pre-cwd-migration layout). When set, call `migrate-from-legacy [--from <subdir>]` to bring them forward into the current workspace's state dir.
+- `state_dir` and `output_dir` should be identical by default (both at `<cwd>/eidolon/`); they diverge only if the user has set `EIDOLON_OUTPUT_DIR`.
+- `workspace_cwd` reports the actual cwd the script was invoked from — this varies per host/mode (see [`docs/HOST-COMPATIBILITY.md`](../docs/HOST-COMPATIBILITY.md)). On Hermes Gateway it may be `~` unless `MESSAGING_CWD` is configured.
 
 ---
 
@@ -145,16 +130,6 @@ The original SOUL.md is **never** modified by this skill.
 ## `setup.py save-reference --src PATH`
 
 Atomically (tmp + replace) copies an image to `<cwd>/eidolon/reference.<ext>` (mode 644). Validates `.png|.jpg|.jpeg|.webp`. Updates the `reference:` header in `visual_anchor.md`. Use both for user-provided paths AND for promoting an approved candidate.
-
----
-
-## `setup.py set-api --key KEY [--base-url URL] [--models CSV]`
-
-Writes `<cwd>/eidolon/env` (mode 600) for the **`openrouter`** backend specifically. Other backends use shell env vars (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`) or no key at all (`codex` reads `~/.codex/auth.json`).
-
-**Run this in the user's own shell, not via an agent that received the key in chat.** That path leaks the key into chat logs + model context + disk.
-
-If any other backend is reachable (e.g. `codex login` already done, or `GEMINI_API_KEY` exported), this command is unnecessary.
 
 ---
 
@@ -202,7 +177,7 @@ python3 scripts/setup.py migrate-from-legacy
 # {
 #   "from":  "/Users/<user>/.config/eidolon",
 #   "to":    "/path/to/workspace/eidolon",
-#   "copied":  ["visual_anchor.md", "reference.jpeg", "preferences.json", "env"],
+#   "copied":  ["visual_anchor.md", "reference.jpeg", "preferences.json"],
 #   "skipped": [],
 #   "purged_legacy": false
 # }
@@ -222,21 +197,50 @@ Refuses to run if the target dir equals the legacy root.
 --bootstrap                    # for the initial reference portrait, no input image needed
 --reference PATH               # override the saved reference image for this call
 --anchor PATH                  # override visual_anchor.md for this call
---backend NAME                 # force backend (codex|gemini|openai|fal|replicate|openrouter)
+--use-codex                    # render via the built-in Codex backend (ChatGPT OAuth)
+                                 instead of emitting instructions JSON
 --list-scenes                  # print scene shortcut list
---list-backends [--json]       # print backend detection results
---doctor                       # state diagnostic (includes backend table)
+--doctor                       # state diagnostic (anchor / reference / codex / output dir)
 ```
 
+### Default mode: instructions JSON
+
 The script:
-1. Loads `visual_anchor.md` (character description text)
-2. Loads the reference image (unless `--bootstrap`)
-3. Sends to API: `[reference image] + [character anchor clause + persona text + your prompt]`
-4. Saves PNG, prints absolute path on its **last stdout line**
+1. Loads `visual_anchor.md` (character description text).
+2. Resolves the reference image (unless `--bootstrap`).
+3. Builds the anchor clause + full prompt + output path.
+4. Validates that reference and output paths live under the workspace.
+5. Prints a JSON blob to stdout:
 
-That's it. No context flags, no register flag, no overlay flag, no time-of-day auto-injection. The agent embeds whatever it wants directly in `--prompt`.
+```json
+{
+  "anchor_clause":   "Preserve the character EXACTLY as in the reference image — …",
+  "full_prompt":     "<anchor_clause>\n\nCharacter description:\n…\n\n<scene>",
+  "reference_image": "/abs/path/to/eidolon/reference.png",
+  "output_path":     "/abs/path/to/eidolon/<slug>-<label>-<YYYYMMDD-HHMMSS>.png",
+  "mode":            "bootstrap | with_reference | iterate_on_reference",
+  "instructions":    "Generate ONE image using whichever image-gen tool you have configured…"
+}
+```
 
-`--state` is a **shortcut** for common scene starters (defined in `generate.py`'s `SCENES` dict). The agent can use it for quick recurring shots, OR write its own prose with `--prompt` for full creative control. Both modes coexist by design.
+The agent then renders the image **using its own tool** — passing `full_prompt` verbatim and attaching `reference_image` — and writes the result to `output_path`. eid0l0n accepts PNG / JPEG / WebP.
+
+**Do NOT paraphrase `full_prompt`.** The character lock is in there.
+
+### `--use-codex` mode
+
+When the user has `codex login`'d (`status.codex_available == true`) and wants zero-config rendering, pass `--use-codex`. The script then:
+
+1. Does steps 1-4 above.
+2. Calls the built-in Codex backend (`scripts/codex_backend.py`) with `(full_prompt, reference_image, output_path)`.
+3. Codex retries up to 3 times with exponential backoff on transient errors.
+4. The PNG is saved atomically to `output_path`.
+5. The script prints the absolute output path on its **last stdout line** (no JSON in this mode).
+
+### Common rules
+
+- No context flags, no register flag, no overlay flag, no time-of-day auto-injection. The agent embeds whatever it wants directly in `--prompt`.
+- `--state` is a **shortcut** for common scene starters (defined in `generate.py`'s `SCENES` dict). The agent can use it for quick recurring shots, OR write its own prose with `--prompt` for full creative control. Both modes coexist by design.
 
 ---
 
@@ -244,19 +248,6 @@ That's it. No context flags, no register flag, no overlay flag, no time-of-day a
 
 ```python
 state = json.parse(setup.py status)
-
-if not state.backend_available:
-    say (
-        "I need a way to make images. Pick one (any one is enough):\n"
-        "  • codex      run `codex login` once — FREE if you have ChatGPT Plus/Pro/Team\n"
-        "  • gemini     export GEMINI_API_KEY=...\n"
-        "  • openai     export OPENAI_API_KEY=...\n"
-        "  • fal        export FAL_KEY=...\n"
-        "  • replicate  export REPLICATE_API_TOKEN=...\n"
-        "  • openrouter setup.py set-api --key <KEY>\n"
-        "Run that in your own shell — never paste the key here."
-    )
-    STOP_TURN
 
 if not state.anchor_exists:
     visual_text = extract_visual_section_from_my_own_SOUL_context()
@@ -271,8 +262,16 @@ if not state.reference_exists:
         say "Saved. This is me from now on."
         STOP_TURN
     elif user_reply contains "generate":
-        cand = generate.py --bootstrap --prompt "<reference-portrait prose>" --label cand
-        deliver_image(cand)
+        # Two render paths:
+        if state.codex_available:
+            generate.py --bootstrap --use-codex \
+                        --prompt "<reference-portrait prose>" --label cand
+            # ↑ writes PNG; cand_path is on the last stdout line
+        else:
+            instr = generate.py --bootstrap \
+                                --prompt "<reference-portrait prose>" --label cand
+            # ↑ prints JSON; agent renders via own image-gen tool to instr.output_path
+        deliver_image(cand_path)
         say "Approve / regenerate <feedback> / cancel?"
         STOP_TURN
     elif user_reply contains "approve":
@@ -280,10 +279,8 @@ if not state.reference_exists:
         say "Locked in."
         STOP_TURN
     elif user_reply contains "regenerate":
-        cand = generate.py --bootstrap --reference <last_cand> \
-                           --prompt "<re-write of reference-portrait prose with feedback>" \
-                           --label cand
-        deliver_image(cand)
+        # Same branching as 'generate' above, plus --reference <last_cand>
+        # for iterate-on-image mode.
         STOP_TURN
 
 # fully onboarded — proceed to per-shot

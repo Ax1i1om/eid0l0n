@@ -2,7 +2,7 @@
 
 This file is the canonical reference for how eidolon integrates with each host. Cite this when implementation behavior surprises you.
 
-Last verified: 2026-04-30 against docs.openclaw.ai (full crawl) and hermes-agent.nousresearch.com/docs (full crawl) + agentskills.io/specification.
+Last verified: 2026-05-01 against docs.openclaw.ai (full crawl) and hermes-agent.nousresearch.com/docs (full crawl) + agentskills.io/specification.
 
 ---
 
@@ -68,9 +68,9 @@ Solution: single-line JSON for `metadata` is also valid YAML flow-style (JSON is
 Our SKILL.md frontmatter:
 - Top-level: `name`, `description`, `version` (Hermes ext), `homepage` (OpenClaw recognized), `metadata` (single-line JSON)
 - `metadata.hermes.{tags, category, requires_toolsets}`
-- `metadata.openclaw.{os, requires.{bins, env}, primaryEnv}`
+- `metadata.openclaw.{os, requires.{bins}}`
 
-Verified by `scripts/test_frontmatter.py` (run as part of the audit smoke test).
+`primaryEnv` and `requires.env` are intentionally absent: as of 0.8.0 eidolon does not require any image-API env var (the host agent uses its own image-gen tool, and the built-in Codex backend reads `~/.codex/auth.json`, not env). Verified by `scripts/test_frontmatter.py` (run as part of the audit smoke test).
 
 ---
 
@@ -87,12 +87,12 @@ Verified by `scripts/test_frontmatter.py` (run as part of the audit smoke test).
 ## Default output dirs
 
 `generate.py` resolves the output dir in this order:
-1. `EIDOLON_OUTPUT_DIR` env var
-2. `~/.openclaw/workspace/eidolon/` (if `~/.openclaw/workspace/` exists)
-3. `~/.hermes/workspace/eidolon/` (if `~/.hermes/workspace/` exists)
-4. `~/Pictures/eidolon/`
+1. `EIDOLON_OUTPUT_DIR` env var (override-only escape hatch)
+2. `<cwd>/eidolon/` — same workspace as state, host-resolved per the cwd contract above
 
-Note that this is the OUTPUT dir (where generated PNGs go), separate from the state dir (where the anchor + reference live). State dir uses cwd resolution (see above); output dir uses host-aware fallback.
+State and output now share the same dir by default, so whichever host invokes the skill is also where the PNGs land. **Multi-host coexistence is automatic.** OpenClaw and Hermes resolve different cwds, so their outputs never share files even when both hosts are installed.
+
+Earlier versions probed hardcoded `~/.openclaw/workspace/` then `~/.hermes/workspace/` and returned the first that existed. That drifted from the cwd-based host model and routed Hermes output into `~/.openclaw/workspace/eidolon/` whenever both dirs existed on disk. The current cwd-based logic fixes that — `state.resolve_output_dir()` now follows the same cwd resolution as `_resolve_state_dir()`.
 
 ---
 

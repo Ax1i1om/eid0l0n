@@ -2,19 +2,22 @@
 """
 EID0L0N (skill name: `eidolon`) — setup toolkit.
 
-7 thin commands. Everything else lives in agent context + SKILL.md prose.
+5 thin commands. Everything else lives in agent context + SKILL.md prose.
 
-    setup.py status                                    JSON state dump (incl. register lock + backends)
-    setup.py detect-backends [--json]                  Available image-gen backends (auto-pick info)
+    setup.py status                                    JSON state dump (anchor / reference / register lock /
+                                                       codex availability / output dir)
     setup.py save-anchor [--text T | --from-file F] [--name NAME]
                                                        Write visual_anchor.md
     setup.py save-reference --src PATH                 Adopt image (atomic, flock-protected)
-    setup.py set-api --key K [--base-url U] [--models CSV]
-                                                       Write env (mode 600) — only needed for openrouter backend
     setup.py set-register-lock {--clear | --until ISO --max R}
                                                        Persist register lock for the FORCE channel
     setup.py migrate-from-legacy [--from <subdir>] [--force] [--purge]
                                                        Copy state from legacy ~/.config/eidolon/ into <cwd>/eidolon/
+
+eid0l0n does not detect, configure, or call third-party image-gen APIs.
+The host agent uses its own image-gen tool (MCP / curl / local ComfyUI / etc.)
+on the instructions JSON emitted by `generate.py`. The only built-in render
+path is Codex (ChatGPT OAuth), invoked via `generate.py --use-codex`.
 """
 from __future__ import annotations
 
@@ -33,25 +36,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from state import (
     ANCHOR_PATH,
     CONFIG_DIR,
-    ENV_PATH,
     LEGACY_CONFIG_DIR,
-    LOCK_PATH,
     PREFS_PATH,
     _HAS_FCNTL,
     _file_lock,
     _read_text_normalized,
-    env_has_key,
+    atomic_write_text,
     fcntl,
     find_existing_reference,
     legacy_state_present,
     load_env_file as _load_gen_env,
     load_prefs,
+    resolve_output_dir,
     write_prefs,
 )
-from backends import BACKENDS, detect_all
+import codex_backend
 
 
-DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 REF_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -60,10 +61,7 @@ REF_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 def cmd_status(args) -> int:
     _load_gen_env()
     prefs = load_prefs()
-    detections = detect_all()
-    available = [name for name, info in detections.items() if info.get("available")]
-    forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
-    auto = next((name for name, _d, det, _g in BACKENDS if det().get("available")), "")
+    codex = codex_backend.detect()
     try:
         cwd = str(Path.cwd())
     except (FileNotFoundError, OSError):
@@ -71,51 +69,20 @@ def cmd_status(args) -> int:
     payload = {
         "anchor_exists":         ANCHOR_PATH.exists(),
         "reference_exists":      find_existing_reference() is not None,
-        "api_key_set":           bool(os.environ.get("IMAGE_API_KEY") or env_has_key()),
         "anchor_path":           str(ANCHOR_PATH) if ANCHOR_PATH.exists() else "",
         "reference_path":        str(find_existing_reference() or ""),
         "register_locked_until": prefs.get("locked_until", ""),
         "register_max":          prefs.get("max_register", ""),
-        "backend_available":     bool(available),
-        "backends_available":    available,
-        "backend_selected":      forced or auto,
-        "backend_forced":        bool(forced),
+        "codex_available":       bool(codex.get("available")),
+        "codex_credit":          codex.get("credit", "") if codex.get("available") else "",
+        "codex_missing":         codex.get("missing", "") if not codex.get("available") else "",
         "state_dir":             str(CONFIG_DIR),
+        "output_dir":            str(resolve_output_dir()),
         "workspace_cwd":         cwd,
         "legacy_state_present":  legacy_state_present(),
         "legacy_config_dir":     str(LEGACY_CONFIG_DIR) if legacy_state_present() else "",
     }
     print(json.dumps(payload, indent=2))
-    return 0
-
-
-# ─── detect-backends ───────────────────────────────────────────────────────
-
-def cmd_detect_backends(args) -> int:
-    _load_gen_env()
-    detections = detect_all()
-    forced = (os.environ.get("EIDOLON_IMAGE_BACKEND") or "").strip().lower()
-    auto = next((name for name, _d, det, _g in BACKENDS if det().get("available")), "")
-    if args.json:
-        print(json.dumps({
-            "selected":  forced or auto,
-            "forced":    bool(forced),
-            "available": [name for name, info in detections.items() if info.get("available")],
-            "details":   detections,
-        }, indent=2))
-        return 0
-    print("eidolon image-gen backends (priority order):\n")
-    for name, display, _det, _gen in BACKENDS:
-        info = detections[name]
-        ok = "✓" if info.get("available") else "✗"
-        extra = f"  ({info.get('credit')})" if info.get("available") else f"  — {info.get('missing','')}"
-        print(f"  {ok} {name:11s} {display}{extra}")
-    if forced:
-        print(f"\nEIDOLON_IMAGE_BACKEND={forced}  (forced override)")
-    elif auto:
-        print(f"\nauto-selected: {auto}")
-    else:
-        print("\nauto-selected: (none — configure one)")
     return 0
 
 
@@ -143,7 +110,7 @@ def cmd_save_anchor(args) -> int:
         f"{text}\n"
     )
     with _file_lock():
-        ANCHOR_PATH.write_text(body)
+        atomic_write_text(ANCHOR_PATH, body)
     print(f"✓ wrote {ANCHOR_PATH}")
     print(ANCHOR_PATH)
     return 0
@@ -186,32 +153,7 @@ def _patch_anchor_reference(ref_path: Path) -> None:
         text = re.sub(r"^reference:\s*.+$", f"reference: {ref_path}", text, count=1, flags=re.MULTILINE)
     else:
         text = f"reference: {ref_path}\n\n" + text
-    ANCHOR_PATH.write_text(text)
-
-
-# ─── set-api ───────────────────────────────────────────────────────────────
-
-def cmd_set_api(args) -> int:
-    if not args.key:
-        sys.exit("error: --key required")
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    lines = [
-        "# eidolon env — mode 600. Do not commit. Do not let an agent collect the key from chat.",
-        f"IMAGE_API_KEY={args.key}",
-        f"IMAGE_API_BASE_URL={args.base_url or DEFAULT_BASE_URL}",
-    ]
-    if args.models:
-        lines.append(f"IMAGE_API_MODELS={args.models}")
-    with _file_lock():
-        ENV_PATH.write_text("\n".join(lines) + "\n")
-        os.chmod(ENV_PATH, 0o600)
-    if os.name == "posix":
-        print(f"✓ wrote {ENV_PATH} (mode 600)")
-    else:
-        print(f"✓ wrote {ENV_PATH}")
-        print(f"  WARNING: chmod 0o600 is a no-op on {os.name}. Restrict access via OS ACLs if this is a multi-user machine.")
-    print("Reminder: run this command IN YOUR OWN SHELL. Never have an agent collect the key from chat and run this for you.")
-    return 0
+    atomic_write_text(ANCHOR_PATH, text)
 
 
 # ─── set-register-lock ─────────────────────────────────────────────────────
@@ -268,7 +210,20 @@ def cmd_migrate_from_legacy(args) -> int:
     moved: list = []
     skipped: list = []
     target.mkdir(parents=True, exist_ok=True)
-    file_names = ["visual_anchor.md", "preferences.json", "env"] + [f"reference.{e}" for e in ("jpg","jpeg","png","webp")]
+    file_names = ["visual_anchor.md", "preferences.json"] + [f"reference.{e}" for e in ("jpg","jpeg","png","webp")]
+
+    # 0.8+ no longer migrates legacy `env` files (the skill no longer reads
+    # IMAGE_API_KEY etc.). Warn explicitly so users with custom env setups
+    # know to copy/inspect manually rather than silently losing the file.
+    legacy_env = source / "env"
+    if legacy_env.exists():
+        print(
+            f"warning: legacy env file at {legacy_env} is NOT migrated.\n"
+            f"  eid0l0n 0.8+ does not read image-API env vars (the agent's own\n"
+            f"  tool handles credentials). If your env file has EIDOLON_*\n"
+            f"  overrides you still want, copy them manually to {target / 'env'}.",
+            file=sys.stderr,
+        )
     lock_fp = open(target / ".lock", "w")
     try:
         if _HAS_FCNTL:
@@ -286,7 +241,7 @@ def cmd_migrate_from_legacy(args) -> int:
             try:
                 mode = src.stat().st_mode & 0o777
             except OSError:
-                mode = 0o600 if name in ("env", "preferences.json") else 0o644
+                mode = 0o600 if name == "preferences.json" else 0o644
             os.chmod(tmp, mode)
             tmp.replace(dst)
             moved.append(name)
@@ -304,7 +259,7 @@ def cmd_migrate_from_legacy(args) -> int:
                         text = re.sub(r"^reference:\s*.+$", f"reference: {ref}", text, count=1, flags=re.MULTILINE)
                     else:
                         text = f"reference: {ref}\n\n" + text
-                    anchor.write_text(text)
+                    atomic_write_text(anchor, text)
                 break
     finally:
         if _HAS_FCNTL:
@@ -329,9 +284,6 @@ def main() -> int:
 
     sub.add_parser("status")
 
-    a = sub.add_parser("detect-backends")
-    a.add_argument("--json", action="store_true", help="machine-readable output for the agent")
-
     a = sub.add_parser("save-anchor")
     a.add_argument("--text")
     a.add_argument("--from-file", dest="from_file")
@@ -339,11 +291,6 @@ def main() -> int:
 
     a = sub.add_parser("save-reference")
     a.add_argument("--src", required=True)
-
-    a = sub.add_parser("set-api")
-    a.add_argument("--key", required=True)
-    a.add_argument("--base-url")
-    a.add_argument("--models")
 
     a = sub.add_parser("set-register-lock")
     a.add_argument("--until", help="ISO-8601 timestamp when lock expires")
@@ -362,10 +309,8 @@ def main() -> int:
     args = p.parse_args()
     dispatch = {
         "status":               cmd_status,
-        "detect-backends":      cmd_detect_backends,
         "save-anchor":          cmd_save_anchor,
         "save-reference":       cmd_save_reference,
-        "set-api":              cmd_set_api,
         "set-register-lock":    cmd_set_register_lock,
         "migrate-from-legacy":  cmd_migrate_from_legacy,
     }
