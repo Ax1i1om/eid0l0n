@@ -20,7 +20,7 @@ This skill summons **one recurring character** as image stills. The character is
 - Same character every time. The visual-anchor clause and the reference image are auto-prepended/attached to every render.
 - Workspace isolation. State and output land in `<cwd>/eidolon/` so OpenClaw and Hermes co-installed on the same machine don't bleed into each other.
 - Atomic writes (flock-protected) for anchor, reference, and preferences files.
-- Path safety: reference and output paths are validated to live under the workspace before the prompt leaves the script.
+- Path safety: reference paths are validated to live under the workspace before the prompt leaves the script. Output paths may be redirected only by explicit user configuration (`EIDOLON_OUTPUT_DIR`).
 
 **Not enforced — the agent is the director:**
 - Scene description, action, posture, gesture, gaze, lighting, time-of-day, color palette, framing, depth of field, mood register, composition rules.
@@ -152,13 +152,23 @@ The agent composes a **scene prose** — full direction in natural language, how
 | Atmosphere | The tonal register of this moment (see MOOD below) |
 | Topic resonance | What is the conversation actually about — let it bleed into props / setting |
 
-Then call:
+Choose the render path from host capability:
 
-```bash
-python3 scripts/generate.py --prompt "<the full prose>" --label "<short-label>"
-```
+- If `status.codex_available` is `true` and the host cannot both attach `reference_image` and write the rendered file to `output_path`, use the built-in Codex path:
 
-The script prints an **instructions JSON** like:
+  ```bash
+  python3 scripts/generate.py --prompt "<the full prose>" --label "<short-label>" --use-codex
+  ```
+
+- Otherwise use the default instructions mode:
+
+  ```bash
+  python3 scripts/generate.py --prompt "<the full prose>" --label "<short-label>"
+  ```
+
+Hermes gateway note: if Hermes only exposes a text-to-image tool without explicit reference-image and output-path controls, prefer `--use-codex` when available. That preserves the one-step PNG path behavior.
+
+In instructions mode, the script prints an **instructions JSON** like:
 
 ```json
 {

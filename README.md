@@ -112,7 +112,9 @@ The agent picks one based on what's available:
 | Path | What it is | When |
 |------|------------|------|
 | **`--use-codex`** | Built-in Codex (ChatGPT OAuth). `codex login` once, then `--use-codex`. | ChatGPT Plus / Pro / Team users — zero-config. |
-| **Default (instructions JSON)** | `generate.py` prints `{full_prompt, reference_image, output_path}`; the agent renders via its own tool (MCP / `curl` + its own key / local ComfyUI / OpenAI-compatible relay) and writes the PNG. | Everyone else. Works with whatever image API the agent already has wired up. |
+| **Default (instructions JSON)** | `generate.py` prints `{full_prompt, reference_image, output_path}`; the agent renders via its own tool (MCP / `curl` + its own key / local ComfyUI / OpenAI-compatible relay) and writes the PNG. | Hosts whose image tool can attach `reference_image` and save to `output_path`. |
+
+If a host only exposes text-to-image generation and cannot provide both reference attachment and output-path control, prefer `--use-codex` when `codex_available` is true.
 
 ---
 
@@ -202,7 +204,7 @@ You don't normally run these — your agent does. Listed here as the contract.
 | `--list-scenes` | Print built-in scene shortcuts |
 | `--doctor` | State diagnostic |
 
-Default behavior (no `--use-codex`): emit an instructions JSON; the agent renders via its own tool. See [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) for full contract + onboarding pseudocode.
+Default behavior (no `--use-codex`): emit an instructions JSON; the agent renders via its own tool. Use this only when the host can attach the reference image and save the result to `output_path`; otherwise use `--use-codex` when available. See [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) for full contract + onboarding pseudocode.
 
 ---
 

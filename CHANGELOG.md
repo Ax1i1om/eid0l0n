@@ -2,6 +2,12 @@
 
 All notable changes to eid0l0n. Format: [Keep a Changelog](https://keepachangelog.com/), versioning: [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Clarify host render-path selection: use default instructions JSON only when the host can attach the reference image and write to `output_path`; otherwise prefer `--use-codex` when Codex is available (notably for Hermes gateways with text-only image tools).
+- Align path-safety docs with implementation: reference paths are workspace-validated; `EIDOLON_OUTPUT_DIR` remains an explicit user-controlled output escape hatch.
+
 ## [0.8.0] — 2026-05-01
 
 The big turn: **eid0l0n no longer ships image-API code (with one exception).** The original design hard-coded six image-gen backends (Codex, Gemini, OpenAI, fal, Replicate, OpenRouter). 0.8.0 deletes five of them. Your agent already has a tool to call its own configured image API — eid0l0n now hands the agent an instructions JSON (anchored prompt + reference image + output path) and gets out of the way.

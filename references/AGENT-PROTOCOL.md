@@ -209,7 +209,7 @@ The script:
 1. Loads `visual_anchor.md` (character description text).
 2. Resolves the reference image (unless `--bootstrap`).
 3. Builds the anchor clause + full prompt + output path.
-4. Validates that reference and output paths live under the workspace.
+4. Validates that reference paths live under the workspace. Output paths may intentionally leave the workspace only when the user set `EIDOLON_OUTPUT_DIR`.
 5. Prints a JSON blob to stdout:
 
 ```json
@@ -292,11 +292,17 @@ The agent must remember `<last_cand_path>` between turns. On OpenClaw / Hermes, 
 
 ## Per-shot, after onboarding
 
-The agent composes a complete scene prose (any length, any specificity) and calls:
+The agent composes a complete scene prose (any length, any specificity) and chooses the render path from host capability:
 
 ```bash
+# Host can attach reference_image and write output_path itself:
 uv run scripts/generate.py --prompt "<the agent's scene>" --label "<short>"
+
+# Host cannot do both, and Codex is available:
+uv run scripts/generate.py --prompt "<the agent's scene>" --label "<short>" --use-codex
 ```
+
+Hermes gateway example: if the available image tool is text-only or cannot save to the requested `output_path`, prefer `--use-codex` whenever `setup.py status` reports `codex_available: true`.
 
 For quick recurring scenes:
 
