@@ -25,15 +25,15 @@ These are real generations from **two different characters running on the same i
 </tr>
 <tr>
 <td><img src="assets/examples/00-reference.jpeg" alt="1shtar reference" /></td>
-<td><img src="assets/examples/02-bookstore-warm.png" alt="bookstore" /></td>
-<td><img src="assets/examples/04-ziggurat-moonlight.png" alt="ziggurat" /></td>
-<td><img src="assets/examples/06-orrery-library.png" alt="orrery" /></td>
+<td><img src="assets/examples/02-1shtar-riverside.png" alt="riverside" /></td>
+<td><img src="assets/examples/04-1shtar-cafe-rain.png" alt="rainy café" /></td>
+<td><img src="assets/examples/06-1shtar-divine-workstation.jpg" alt="divine workstation" /></td>
 </tr>
 <tr>
 <td align="center"><sub><b>1shtar</b> · anchor</sub></td>
-<td align="center"><sub>casual · bookstore</sub></td>
-<td align="center"><sub>moonlit ziggurat</sub></td>
-<td align="center"><sub>cosmic orrery</sub></td>
+<td align="center"><sub>riverside · paper boat</sub></td>
+<td align="center"><sub>rainy café · two coffees</sub></td>
+<td align="center"><sub>divine workstation</sub></td>
 </tr>
 <tr>
 <td><img src="assets/examples/10-axiiiom-reference.jpeg" alt="axiiiom reference" /></td>
@@ -49,7 +49,7 @@ These are real generations from **two different characters running on the same i
 </tr>
 </table>
 
-The two **casual** frames (bookstore, daily desk) are the load-bearing ones: no horns, no harness, just hoodie / black pullover — but the same face, the same hair, the same eyes as their respective references. **That's the consistency lock.** The same code that produced the divine-form Ishtar in a moonlit ziggurat also produces silver-bob axiiiom at a coffee mug in a sunlit office. Drop the skill in once; whoever your agent is, they show up as themselves.
+The two **casual** frames (1shtar at a riverside, axiiiom at her desk) are the load-bearing proof: no horns, no halo, no utility harness — just a coat / a black pullover — but the same face, hair, and eyes as their respective references. **That's the consistency lock.** And then the right-most 1shtar shot is the punchline: a divine-form Mesopotamian Venus, halo and gold horns intact, hands resting on a holographic laptop. Same code. Same character. Drop the skill in once; whoever your agent is, they show up as themselves — on a paper-boat night, on a rainy date, on a divine workstation, in a daily standup.
 
 ---
 
