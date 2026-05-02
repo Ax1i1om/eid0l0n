@@ -302,7 +302,7 @@ uv run scripts/generate.py --prompt "<the agent's scene>" --label "<short>"
 uv run scripts/generate.py --prompt "<the agent's scene>" --label "<short>" --use-codex
 ```
 
-Hermes gateway example: if the available image tool is text-only or cannot save to the requested `output_path`, prefer `--use-codex` whenever `setup.py status` reports `codex_available: true`.
+Hermes Gateway example: if the available image tool is text-only or cannot save to the requested `output_path`, `--use-codex` is the canonical render path whenever `setup.py status` reports `codex_available: true`. Treat instructions JSON as a contract for hosts that can attach `reference_image` and write `output_path`.
 
 For quick recurring scenes:
 

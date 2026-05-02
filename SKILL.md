@@ -166,7 +166,7 @@ Choose the render path from host capability:
   python3 scripts/generate.py --prompt "<the full prose>" --label "<short-label>"
   ```
 
-Hermes gateway note: if Hermes only exposes a text-to-image tool without explicit reference-image and output-path controls, prefer `--use-codex` when available. That preserves the one-step PNG path behavior.
+Hermes Gateway note: when the available Hermes image tool is text-to-image only (no explicit `reference_image` attachment and no `output_path` control), `--use-codex` is the **canonical** EID0L0N render path, not a fallback. Use instructions JSON only on hosts that can honor both `reference_image` and `output_path`.
 
 In instructions mode, the script prints an **instructions JSON** like:
 

@@ -5,7 +5,7 @@ All notable changes to eid0l0n. Format: [Keep a Changelog](https://keepachangelo
 ## [Unreleased]
 
 ### Changed
-- Clarify host render-path selection: use default instructions JSON only when the host can attach the reference image and write to `output_path`; otherwise prefer `--use-codex` when Codex is available (notably for Hermes gateways with text-only image tools).
+- Clarify host render-path selection: use default instructions JSON only when the host can attach the reference image and write to `output_path`; otherwise `--use-codex` is the canonical EID0L0N render path whenever Codex is available (notably for Hermes gateways with text-only image tools).
 - Align path-safety docs with implementation: reference paths are workspace-validated; `EIDOLON_OUTPUT_DIR` remains an explicit user-controlled output escape hatch.
 
 ## [0.8.0] — 2026-05-01

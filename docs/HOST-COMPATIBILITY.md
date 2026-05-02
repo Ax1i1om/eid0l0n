@@ -44,6 +44,8 @@ Hermes does not need a config-patch step. OpenClaw needs `~/.openclaw/openclaw.j
 
 **Hermes Gateway users — important:** if you want eidolon state to land in a specific project (rather than `~/eidolon/`), set `MESSAGING_CWD=/path/to/project` (or `EIDOLON_HOME=/path/to/project/eidolon`) before starting `hermes-gateway`.
 
+**Hermes Gateway render path:** when the Hermes image tool is text-to-image only and cannot both attach `reference_image` and save to `output_path`, Codex is the canonical EID0L0N renderer. Use `generate.py --use-codex` whenever `setup.py status` reports `codex_available: true`; use instructions JSON only on hosts/tools that can honor the full reference+output contract.
+
 ---
 
 ## SOUL.md ownership

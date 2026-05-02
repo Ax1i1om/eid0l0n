@@ -114,7 +114,7 @@ Agent 根据可用资源自己挑：
 | **`--use-codex`** | 内置 Codex（ChatGPT OAuth）。`codex login` 一次，加 `--use-codex`。 | ChatGPT Plus / Pro / Team 用户——零配置。 |
 | **默认（指令 JSON）** | `generate.py` 输出 `{full_prompt, reference_image, output_path}`；agent 用自己的工具（MCP / `curl + 自己的 key` / 本地 ComfyUI / OpenAI 兼容中转）渲染并写出 PNG。 | 适合能附加 `reference_image` 且能写入 `output_path` 的 host。 |
 
-如果某个 host 只有纯 text-to-image 工具，不能同时处理参考图和指定输出路径，那么在 `codex_available` 为 true 时优先用 `--use-codex`。
+如果某个 host 只有纯 text-to-image 工具，不能同时处理参考图和指定输出路径，那么只要 `codex_available` 为 true，`--use-codex` 就是 EID0L0N 的 canonical 出图路径，不是 fallback。指令 JSON 只给能完整履约的 host。
 
 ---
 
@@ -203,7 +203,7 @@ Agent 根据可用资源自己挑：
 | `--list-scenes` | 列出内置场景预设 |
 | `--doctor` | 状态诊断 |
 
-默认行为（不带 `--use-codex`）：输出一份指令 JSON，agent 用自己的工具按 JSON 出图。只有当 host 能附加参考图并把结果写到 `output_path` 时才走这条路；否则只要 Codex 可用就走 `--use-codex`。详细子命令规格 + onboarding 状态机伪代码参见 [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md)。
+默认行为（不带 `--use-codex`）：输出一份指令 JSON，agent 用自己的工具按 JSON 出图。只有当 host 能附加参考图并把结果写到 `output_path` 时才走这条路；否则只要 Codex 可用，`--use-codex` 就是 canonical 出图路径。详细子命令规格 + onboarding 状态机伪代码参见 [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md)。
 
 ---
 
