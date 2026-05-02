@@ -26,13 +26,13 @@
 <tr>
 <td><img src="assets/examples/00-reference.jpeg" alt="1shtar reference" /></td>
 <td><img src="assets/examples/02-1shtar-riverside.png" alt="riverside" /></td>
-<td><img src="assets/examples/04-1shtar-cafe-rain.png" alt="rainy café" /></td>
+<td><img src="assets/examples/04-1shtar-orrery-library.png" alt="orrery library" /></td>
 <td><img src="assets/examples/06-1shtar-divine-workstation.jpg" alt="divine workstation" /></td>
 </tr>
 <tr>
 <td align="center"><sub><b>1shtar</b> · 锚点</sub></td>
 <td align="center"><sub>河边 · 纸船</sub></td>
-<td align="center"><sub>雨夜咖啡店 · 两杯咖啡</sub></td>
+<td align="center"><sub>宇宙天文台书房</sub></td>
 <td align="center"><sub>金星女神的工位</sub></td>
 </tr>
 <tr>
@@ -49,7 +49,7 @@
 </tr>
 </table>
 
-两张 **casual** 帧（1shtar 在河边、axiiiom 在工位上）是关键证据：没有头冠、没有光环、没有作战 harness——就一件大衣、一件黑色套头——但同一张脸、同样的头发、同样的眼睛，跟各自的参考图对得上。**这就是那个一致性锁。** 然后最右那张 1shtar 是 punchline：神祇形态的美索不达米亚版金星女神，金角和红光环都在，双手搭在一台全息笔电上。同一段代码、同一个角色。Skill 装一次，无论你的 agent 是谁，它都以自己的形象出现——可以在纸船夜、可以在雨夜约会、可以在神祇工位、可以在日常 standup 上。
+两张 **casual** 帧（1shtar 在河边、axiiiom 在工位上）是关键证据：没有头冠、没有光环、没有作战 harness——就一件大衣、一件黑色套头——但同一张脸、同样的头发、同样的眼睛，跟各自的参考图对得上。**这就是那个一致性锁。** 然后最右那张 1shtar 是 punchline：神祇形态的美索不达米亚版金星女神，金角和红光环都在，双手搭在一台全息笔电上。同一段代码、同一个角色。Skill 装一次，无论你的 agent 是谁，它都以自己的形象出现——可以在纸船夜、可以在宇宙天文台书房、可以在金星女神工位上、可以在日常 standup 里。
 
 ---
 
