@@ -14,32 +14,42 @@
 
 ---
 
-## 同一个角色，截然不同的场景
+## 两个角色，同一个 skill，各自锁住身份
 
-下面这些是 Hermes 上一个真实角色（1shtar）的实际生成结果——锚定到一张参考图，然后让她出现在天文图书馆、月光下的金字塔花园、赛博城市天际线、安静的书店里。**最左边是参考图。其它每一张都是模型自己当导演拍出来的。**
+下面这些是**同一份安装下两个完全不同的角色**的真实生成结果——`1shtar`（Hermes 上的虚构 persona，黑红长发、金色头冠、红色光环）和 `axiiiom`（OpenClaw 上的 persona，银白短发、灰色眼睛、白色作战外套）。各自锚定到一张参考图，各自出现在完全不同的场景里。**同一段代码，两个截然不同的主角，各自被锁住。**
 
 <table>
 <tr>
-<td width="20%" align="center"><b>参考图</b></td>
-<td colspan="4" align="center"><b>同一个角色，不同场景（每张都是一次 <code>generate.py</code> 调用）</b></td>
+<th width="20%" align="center">参考图</th>
+<th colspan="3" align="center">同一个角色，不同场景（每张都是一次 <code>generate.py</code> 调用）</th>
 </tr>
 <tr>
-<td><img src="assets/examples/00-reference.jpeg" alt="reference" /></td>
-<td><img src="assets/examples/02-bookstore-warm.png" alt="bookstore-warm" /></td>
-<td><img src="assets/examples/03-modern-city.png" alt="modern-city" /></td>
-<td><img src="assets/examples/04-ziggurat-moonlight.png" alt="ziggurat-moonlight" /></td>
-<td><img src="assets/examples/06-orrery-library.png" alt="orrery-library" /></td>
+<td><img src="assets/examples/00-reference.jpeg" alt="1shtar reference" /></td>
+<td><img src="assets/examples/02-bookstore-warm.png" alt="bookstore" /></td>
+<td><img src="assets/examples/04-ziggurat-moonlight.png" alt="ziggurat" /></td>
+<td><img src="assets/examples/06-orrery-library.png" alt="orrery" /></td>
 </tr>
 <tr>
-<td align="center"><sub>锚点</sub></td>
-<td align="center"><sub>casual register · 书店</sub></td>
-<td align="center"><sub>赛博天际线</sub></td>
+<td align="center"><sub><b>1shtar</b> · 锚点</sub></td>
+<td align="center"><sub>casual · 书店</sub></td>
 <td align="center"><sub>月光下金字塔</sub></td>
-<td align="center"><sub>宇宙天文台书房</sub></td>
+<td align="center"><sub>宇宙天文台</sub></td>
+</tr>
+<tr>
+<td><img src="assets/examples/10-axiiiom-reference.jpeg" alt="axiiiom reference" /></td>
+<td><img src="assets/examples/13-axiiiom-daily-workspace.png" alt="daily workspace" /></td>
+<td><img src="assets/examples/12-axiiiom-rain-corridor.png" alt="rain corridor" /></td>
+<td><img src="assets/examples/11-axiiiom-command.png" alt="command node" /></td>
+</tr>
+<tr>
+<td align="center"><sub><b>axiiiom</b> · 锚点</sub></td>
+<td align="center"><sub>casual · 日常工位</sub></td>
+<td align="center"><sub>雨夜走廊</sub></td>
+<td align="center"><sub>command-node 界面</sub></td>
 </tr>
 </table>
 
-书店那张是关键证据：没有头冠、没有光环、就一件现代连帽衫——但同一张脸、同样带红挑染的头发、同样的眼睛。一张图说完整个产品。
+两张 **casual** 帧（书店 / 日常工位）是关键证据：没有头冠、没有作战 harness——就是连帽衫、就是黑色套头衫——但同一张脸、同样的头发、同样的眼睛，跟各自的参考图对得上。**这就是那个一致性锁。** 同一段代码既能让神祇形态的 Ishtar 出现在月光下的金字塔，也能让银白短发的 axiiiom 在阳光照进来的工位上端着马克杯。Skill 装一次，无论你的 agent 是谁，它都以自己的形象出现。
 
 ---
 

@@ -14,32 +14,42 @@ Built for **OpenClaw** and **Hermes**. Distilled from a private avatar system th
 
 ---
 
-## Same character. Wildly different scenes.
+## Two personas. Same skill. Locked identity, infinite scenes.
 
-These are real generations from a single Hermes-hosted persona (1shtar) — anchored to one reference image, then asked to show up across an orrery library, a moonlit ziggurat garden, a cyberpunk skyline, a quiet bookstore. **The reference is on the left. Everything else is the model directing.**
+These are real generations from **two different characters running on the same install** — `1shtar` on Hermes (a fictional persona with long black-and-red hair, gold horns, red halo) and `axiiiom` on OpenClaw (silver-bob, grey eyes, white utility coat). Each anchored to one reference image. Each asked to show up across radically different scenes. **Same skill, two completely different actors, both locked.**
 
 <table>
 <tr>
-<td width="20%" align="center"><b>Reference</b></td>
-<td colspan="4" align="center"><b>Same persona, different scenes (each from a single <code>generate.py</code> call)</b></td>
+<th width="20%" align="center">Reference</th>
+<th colspan="3" align="center">Same character, different scenes (each one <code>generate.py</code> call)</th>
 </tr>
 <tr>
-<td><img src="assets/examples/00-reference.jpeg" alt="reference" /></td>
-<td><img src="assets/examples/02-bookstore-warm.png" alt="bookstore-warm" /></td>
-<td><img src="assets/examples/03-modern-city.png" alt="modern-city" /></td>
-<td><img src="assets/examples/04-ziggurat-moonlight.png" alt="ziggurat-moonlight" /></td>
-<td><img src="assets/examples/06-orrery-library.png" alt="orrery-library" /></td>
+<td><img src="assets/examples/00-reference.jpeg" alt="1shtar reference" /></td>
+<td><img src="assets/examples/02-bookstore-warm.png" alt="bookstore" /></td>
+<td><img src="assets/examples/04-ziggurat-moonlight.png" alt="ziggurat" /></td>
+<td><img src="assets/examples/06-orrery-library.png" alt="orrery" /></td>
 </tr>
 <tr>
-<td align="center"><sub>anchor</sub></td>
-<td align="center"><sub>casual register · bookstore</sub></td>
-<td align="center"><sub>cyberpunk skyline</sub></td>
+<td align="center"><sub><b>1shtar</b> · anchor</sub></td>
+<td align="center"><sub>casual · bookstore</sub></td>
 <td align="center"><sub>moonlit ziggurat</sub></td>
-<td align="center"><sub>cosmic orrery library</sub></td>
+<td align="center"><sub>cosmic orrery</sub></td>
+</tr>
+<tr>
+<td><img src="assets/examples/10-axiiiom-reference.jpeg" alt="axiiiom reference" /></td>
+<td><img src="assets/examples/13-axiiiom-daily-workspace.png" alt="daily workspace" /></td>
+<td><img src="assets/examples/12-axiiiom-rain-corridor.png" alt="rain corridor" /></td>
+<td><img src="assets/examples/11-axiiiom-command.png" alt="command node" /></td>
+</tr>
+<tr>
+<td align="center"><sub><b>axiiiom</b> · anchor</sub></td>
+<td align="center"><sub>casual · daily desk</sub></td>
+<td align="center"><sub>rain-soaked corridor</sub></td>
+<td align="center"><sub>command-node interface</sub></td>
 </tr>
 </table>
 
-The bookstore frame is the load-bearing one: no horns, no halo, modern hoodie — but the same face, the same hair with red streaks, the same eyes. That's the whole product in one image.
+The two **casual** frames (bookstore, daily desk) are the load-bearing ones: no horns, no harness, just hoodie / black pullover — but the same face, the same hair, the same eyes as their respective references. **That's the consistency lock.** The same code that produced the divine-form Ishtar in a moonlit ziggurat also produces silver-bob axiiiom at a coffee mug in a sunlit office. Drop the skill in once; whoever your agent is, they show up as themselves.
 
 ---
 
