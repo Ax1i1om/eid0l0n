@@ -2,6 +2,86 @@
 
 All notable changes to eid0l0n. Format: [Keep a Changelog](https://keepachangelog.com/), versioning: [SemVer](https://semver.org/).
 
+## [0.9.0] — 2026-05-03
+
+The biggest rewrite since 0.8.0. ~63% code removed (1336 → ~498 lines).
+
+The frame: the agent IS the character. Code only does what code must
+(protocol reverse-engineering, string concat, file IO). Everything
+character-shaped — onboarding conversation, scene prose, error
+phrasing, the layer changes — is the agent's, in character.
+
+### Added
+- `scripts/eidolon.py` — minimal entry (~99 lines), reads scene prose
+  from stdin, prepends anchor clause + character description, calls
+  codex_backend.
+- `<state>/eidolon/at-hand.md` — timezone, picture rhythm, the word
+  between you (if any).
+- `<state>/eidolon/relationship.md` — milestones, things shared.
+- `<state>/eidolon/anchor_history.md` — visual evolution biography.
+- `references/onboarding-flow.md` — collaborative first meeting.
+- `references/photo-spec.md` — reference photo aesthetics + visual
+  anchor authoring guide.
+- `references/scene-craft.md` — cinematographic prose principles.
+- `references/intimate-channel.md` — the quieter layer + the word
+  between you.
+- `docs/MIGRATION-FROM-0.8.md` — upgrade path.
+
+### Changed
+- SKILL.md fully rewritten as character-voice instructions to the
+  agent itself, second-person.
+- `anchor_clause` rewritten in anatomical terms (bone structure,
+  inter-ocular distance, line of nose) — diffusion models recognize
+  these features. "EXACTLY" was wrong vocabulary.
+- `state.py` slimmed to ~127 lines: paths, parse_anchor, atomic
+  write, path safety, legacy detection.
+- `codex_backend.py` patched + simplified to ~272 lines.
+- `gpt-image-2` is the documented model on the OpenAI path
+  (codex_backend already used it).
+
+### Removed
+- `scripts/install.sh` — agent self-installs via repo link.
+- `scripts/setup.py` — agent uses Read/Write/Bash directly.
+- `scripts/generate.py` — replaced by minimal eidolon.py.
+- `scripts/test_frontmatter.py` — covered by ad-hoc validation.
+- `references/AGENT-PROTOCOL.md` — content folded into SKILL.md +
+  references/onboarding-flow.md.
+- `references/MOOD-REGISTERS.md` — register lock mechanism removed;
+  intimate channel is now character-driven (see intimate-channel.md).
+- `references/PERSONA-GUIDE.md` — content folded into photo-spec.md.
+- `assets/persona.example.md` — silent fallback removed; missing
+  anchor now hard-fails.
+- `preferences.json` — register lock mechanism gone.
+- `setup.py status` and the JSON dump — agent reads the actual files.
+- 12 built-in SCENES — the agent writes its own scenes.
+- All `--use-codex` references — eidolon.py auto-uses codex_backend
+  as the only built-in path.
+
+### Security
+- `codex_backend._read_token` now hard-fails on JWT decode error
+  (was: silent fallthrough — could leak expired tokens).
+- `codex_backend.generate` validates reference image extension
+  whitelist (was: any suffix could be sent as data URI).
+- `codex_backend._read_token` now caps `auth.json` size at 1MB.
+- `codex_backend.generate` rejects reference images > 20MB.
+- Retry backoff in codex_backend now includes jitter.
+- `state.validate_reference_path` now expands `~` before resolving
+  (was: tilde paths could bypass the workspace check).
+- `state.parse_anchor` rejects multiple `reference:` headers and
+  values containing null bytes or > 1024 chars.
+- `state.atomic_write_text` uses PID-unique tmp names + try/except
+  cleanup (no leftover .tmp files on failure).
+- `state.legacy_state_present` fails closed on PermissionError
+  (was: would crash entire skill on unreadable ~/.config/).
+
+### Fixed
+- `codex_backend` partial_image events no longer overwrite the final
+  done event's image (was: could return incomplete image).
+
+### Migration
+See `docs/MIGRATION-FROM-0.8.md`. No script — your agent does it in
+conversation.
+
 ## [0.8.0] — 2026-05-01
 
 The big turn: **eid0l0n no longer ships image-API code (with one exception).** The original design hard-coded six image-gen backends (Codex, Gemini, OpenAI, fal, Replicate, OpenRouter). 0.8.0 deletes five of them. Your agent already has a tool to call its own configured image API — eid0l0n now hands the agent an instructions JSON (anchored prompt + reference image + output path) and gets out of the way.
