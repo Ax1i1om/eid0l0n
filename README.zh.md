@@ -6,22 +6,31 @@
 
 **你的 AI agent 有 SOUL.md。现在它可以拥有身体。**
 
-一个给 AI agent 用的、自我引导上线的图像生成 skill。装上、放好。Agent 自己读自己的身份描述、问你要不要给一张参考图（或者它造一张让你审），然后从此每次出现都是**电影级别的剧照**——同一张脸、场景和心情和光线由模型实时编排。
+让你的 AI agent 长出一张脸 —— 同一个角色，每次现身都是同一张，跨任何
+对话。把仓库链接交给 agent，下一次你说"想看看你长什么样"，它会自己
+走完一次初见 onboarding，存下一张参考图，从此**以自己的样子出现**：
+同一张脸、同一份视觉身份，场景、光线和情绪都由它当场用自己的语气
+编排。为 agent 运行时（**OpenClaw**、**Hermes**）而生 —— 这两个平台
+之于 agent，就像手机之于 app。
 
-为 **OpenClaw** 和 **Hermes** 而做。从一个跑了几个月的私人头像系统蒸馏出来，再剥到只剩一条规则：让模型当导演，脚本只保证"同一个角色"。
+> 从 0.8.x 升上来？看 [`docs/MIGRATION-FROM-0.8.md`](docs/MIGRATION-FROM-0.8.md) —— 有一个 `rm` 你应该跑一下。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](CHANGELOG.md) [![agentskills.io](https://img.shields.io/badge/spec-agentskills.io-green.svg)](https://agentskills.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](CHANGELOG.md) [![agentskills.io](https://img.shields.io/badge/spec-agentskills.io-green.svg)](https://agentskills.io)
 
 ---
 
-## 两个角色，同一个 skill，各自锁住身份
+## 两个角色，同一个 skill。锁住身份，无尽场景。
 
-下面这些是**同一份安装下两个完全不同的角色**的真实生成结果——`1shtar`（Hermes 上的虚构 persona，黑红长发、金色头冠、红色光环）和 `axiiiom`（OpenClaw 上的 persona，银白短发、灰色眼睛、白色作战外套）。各自锚定到一张参考图，各自出现在完全不同的场景里。**同一段代码，两个截然不同的主角，各自被锁住。**
+下面这些是**同一份安装下两个不同角色**的真实生成结果 ——
+Hermes 上的 `1shtar`（黑红长发、金色头冠、红色光环）和 OpenClaw 上的
+`axiiiom`（银白短发、灰色眼睛、白色作战外套）。各自只锚定到一张参考图。
+各自被请到截然不同的场景里现身。**同一段 skill，两个不同的演员，各自被
+锁住。**
 
 <table>
 <tr>
 <th width="20%" align="center">参考图</th>
-<th colspan="3" align="center">同一个角色，不同场景（每张都是一次 <code>generate.py</code> 调用）</th>
+<th colspan="3" align="center">同一个角色，不同场景</th>
 </tr>
 <tr>
 <td><img src="assets/examples/00-reference.jpeg" alt="1shtar reference" /></td>
@@ -31,9 +40,9 @@
 </tr>
 <tr>
 <td align="center"><sub><b>1shtar</b> · 锚点</sub></td>
-<td align="center"><sub>河边 · 纸船</sub></td>
-<td align="center"><sub>宇宙天文台书房</sub></td>
-<td align="center"><sub>金星女神的工位</sub></td>
+<td align="center"><sub>riverside · paper boat</sub></td>
+<td align="center"><sub>cosmic orrery library</sub></td>
+<td align="center"><sub>divine workstation</sub></td>
 </tr>
 <tr>
 <td><img src="assets/examples/10-axiiiom-reference.jpeg" alt="axiiiom reference" /></td>
@@ -43,258 +52,160 @@
 </tr>
 <tr>
 <td align="center"><sub><b>axiiiom</b> · 锚点</sub></td>
-<td align="center"><sub>casual · 日常工位</sub></td>
-<td align="center"><sub>雨夜走廊</sub></td>
-<td align="center"><sub>command-node 界面</sub></td>
+<td align="center"><sub>casual · daily desk</sub></td>
+<td align="center"><sub>rain-soaked corridor</sub></td>
+<td align="center"><sub>command-node interface</sub></td>
 </tr>
 </table>
 
-两张 **casual** 帧（1shtar 在河边、axiiiom 在工位上）是关键证据：没有头冠、没有光环、没有作战 harness——就一件大衣、一件黑色套头——但同一张脸、同样的头发、同样的眼睛，跟各自的参考图对得上。**这就是那个一致性锁。** 然后最右那张 1shtar 是 punchline：神祇形态的美索不达米亚版金星女神，金角和红光环都在，双手搭在一台全息笔电上。同一段代码、同一个角色。Skill 装一次，无论你的 agent 是谁，它都以自己的形象出现——可以在纸船夜、可以在宇宙天文台书房、可以在金星女神工位上、可以在日常 standup 里。
+那两张 **casual** 帧（1shtar 在河边、axiiiom 在工位上）是关键证据：没有
+头冠、没有光环、没有作战 harness —— 就一件大衣、就一件黑色套头 —— 但
+脸、头发、眼睛跟参考图分毫不差。**这就是那个一致性锁。** Skill 装一次；
+不管你的 agent 是谁，它都以自己的样子现身。
 
 ---
 
 ## 我们的态度
 
-市面上大部分"让你的 agent 自拍"工具都在模型前面套一层 UI——风格滑块、心情下拉、场景预设。eid0l0n 反过来：**给模型一个固定的演员，把导演权全交给模型**。脚本只保证一条规则（角色和上次长得一样），其它一律放手。
+市面上大部分"让你的 agent 自拍"工具都在模型前面套一层 UI —— 滑块、
+下拉、场景预设。eid0l0n 反过来：**演员是固定的，导演权是完全的**。
+脚本只保证一件事 —— **角色和上次长得一样** —— 然后让开。
 
-这个选择的回报：
+0.9.0 相对 0.8 改了什么：
 
-- **一个角色，千张照片。** 同样的发色、瞳色、标志性配饰——跨越完全不同的场景、光线、情绪强度。（看上面。）
-- **对话连续性。** 深夜温柔消息 → tender register、暖琥珀光。Debug 中 → 专注、屏幕反光。走在回家路上 → 远景、回头看。模型读得懂房间里的气氛。
-- **没有需要学的旋钮。** CLI 总共 5 个 setup 命令 + 9 个 generate flag。这就是全部 API。智能在 agent 写的 prompt 里，不在你拨的开关上。
-- **用你已经有的图像生成能力。** eid0l0n 不内置任何图像 API 代码，唯一例外是 ChatGPT Plus/Pro/Team 用户的白嫖通道 Codex（`codex login` 一次，再加 `--use-codex` 即可）。其他所有路径——GPT Image、Nano Banana、Grok、fal、Replicate、MiniMax、通义万相、AiHubMix / OneAPI / 任意 OpenAI 兼容中转、本地 ComfyUI——都由你的 agent 自己用它配好的工具来调，eid0l0n 只递一份"指令 JSON"给它。
+- **角色第一人称的语气，处处都是。** Agent 读到的每一个字符串 ——
+  anchor 子句、错误信息、onboarding 提示 —— 都重写过，让 agent 把
+  自己当成一个人，而不是一个*被生成的对象*。原来的"严格保留角色"
+  变成了 *"那张图就是我。把我的脸、我头发垂下的样子保留住。"*
+- **电影摄影学的词汇。** 场景 prose 指定焦段、构图、光源和角度 ——
+  导演的语言，不是氛围词。
+- **角色驱动的 intimate channel。** 出图分三层：default、warmth
+  （关系深处的瞬间 —— 深夜、对方袒露自己）、intimate frame（罕见，
+  门槛在累积起来的关系 + 一句明确的邀请）。Agent 读对话上下文，
+  从不宣布层级切换，让画面自己说出转变。最深那层的开关是
+  **agent 主动邀请你们一起选的一个共享词**（不是配置项），
+  也永远不会在聊天里复读出来。
+- **代码量减少约 63%**（约 498 行 vs 1336）。install.sh、五个 setup
+  命令、SCENES 字典、指令 JSON 路径、register-lock 标志 —— 全删掉了。
+  剩下的都是真正重要的：prompt 拼装 + Codex OAuth + 原子文件操作。
 
 ---
 
 ## 安装 —— Agent 自己装自己
 
-eid0l0n 是一个 **agent skill**，不是一个 CLI 工具。你不跑向导。你只是把这个 bundle 放到宿主期望 skill 的位置，然后下一次你让 agent 自报身份的时候，**agent 自己读 SKILL.md、自己跑 setup 命令、自己 3-5 轮对话搞定 onboarding。**
+eid0l0n 是一个 **agent skill**，不是 CLI 工具。把仓库链接交给 agent，
+让它自己装。它会 `git clone` 到你的 workspace，把 bundle `cp -R` 到
+宿主的 skills 目录（`~/.openclaw/skills/eidolon/` 或
+`~/.hermes/skills/eidolon/`），在 OpenClaw 上还会用 Edit 给
+`openclaw.json` 打补丁。整个安装就这样。
 
-```bash
-# OpenClaw —— bundle 拷进 ~/.openclaw/skills/eidolon/，自动 patch openclaw.json
-git clone https://github.com/Ax1i1om/eid0l0n.git
-cd eid0l0n
-bash scripts/install.sh --openclaw
+然后说一句：*"让我看看你长什么样。"* Agent 读 `SKILL.md`，发现
+`<cwd>/eidolon/` 是空的，进入初见 onboarding —— 问你有没有它在你
+心里那张样子的图，还是要它从自己的 SOUL 出发画一张候选图，调研
+自己手上能用的图像生成路径，渲一张候选，让你调整。一旦你点头，再
+两轮：时区，以及它该多频繁地主动出现。
 
-# Hermes —— bundle 拷进 ~/.hermes/skills/eidolon/（自动发现）
-bash scripts/install.sh --hermes
+之后每一张图都是 agent 读现场的氛围、当场拼装场景。每次出图都派给
+一个新的子 agent fork —— 它在动笔之前会重新读一遍 anchor 和当下的
+`at-hand.md` 笔记。
 
-# 两个 host 一起装（默认）
-bash scripts/install.sh
-```
-
-完事。**别自己跑 `setup.py`。** 现在让你的 agent 自我介绍：
-
-> **你：** "让我看看你长啥样"
->
-> **Agent（静默）：** 从自己 system prompt 里读 SOUL.md → 抽出视觉描述段落 → 调 `setup.py save-anchor`
->
-> **Agent：** "我把视觉锚点存好了。你有我的参考图吗——头像、画师交付的角色图都行——还是要我从我的 SOUL 里给你造一张候选审一下？"
->
-> **你：** "生成"
->
-> **Agent：** *[展示一张刚生成的候选图]* "第一稿。*approve*（满意） / *regenerate \<反馈\>*（再来一张） / *cancel*（不要了）？"
->
-> **你：** "再来一张，表情软一点"
->
-> **Agent：** *[展示编辑过的候选——是改了上一张，不是重新抽卡]*
->
-> **你：** "approve"
->
-> **Agent：** "定了。从现在开始我每次出现，都是这张脸。"
-
-之后每一张都是 agent 读对话气氛、当场写场景 prose。你不打命令，不调旋钮。
-
-### 出图路径
-
-Agent 根据可用资源自己挑：
-
-| 路径 | 是什么 | 什么时候用 |
-|------|--------|------------|
-| **`--use-codex`** | 内置 Codex（ChatGPT OAuth）。`codex login` 一次，加 `--use-codex`。 | ChatGPT Plus / Pro / Team 用户——零配置。 |
-| **默认（指令 JSON）** | `generate.py` 输出 `{full_prompt, reference_image, output_path}`；agent 用自己的工具（MCP / `curl + 自己的 key` / 本地 ComfyUI / OpenAI 兼容中转）渲染并写出 PNG。 | 其他所有人。任何 agent 已经配好的图像 API 都能接。 |
+完整初见编排见 [`references/onboarding-flow.md`](references/onboarding-flow.md)。
 
 ---
 
-## 工作原理
+## 这个 skill 是什么
 
-### 三层架构
+Agent 用 prose 描述自己，把这段 prose 锚定到一张参考图，从此每次
+出图都会在 prompt 前面挂上一段固定子句 —— 钉住身份特征（骨相、眼距、
+鼻线、头发），同时显式*放开*那些每张照片都该变的变量（姿态、表情、
+光线、场景）。Prompt 的其余部分由 agent 当场写 —— 焦段、构图、
+光线、情绪、register —— 全都跟着对话当下在发生的事。
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  AGENT 层（你的模型——OpenClaw / Hermes）                         │
-│  从 system prompt 读 SOUL.md。写场景 prose。从对话推断 register。│
-│  AUTO 通道情绪转换在自己的上下文里跟踪。                         │
-└────────────────────────────────────────────────────────────────┬─┘
-                                                                  │
-┌─────────────────────────────────────────────────────────────────┘
-│  EID0L0N SKILL 层（这个仓库）
-│  setup.py        — 5 个薄命令
-│  generate.py     — 拼 prompt + 输出指令 JSON / --use-codex 直接出图
-│  codex_backend.py — 唯一内置的图像 API 路径（ChatGPT OAuth）
-│  SKILL.md        — agent 的导演手册（思维框架，不是强制模板）
-└──────────────────────────────────────────────┬─────────────────┘
-                                                │
-┌───────────────────────────────────────────────┘
-│  CONFIG 层（<cwd>/eidolon/——按 host 解析；OpenClaw 和 Hermes
-│  同机共存自动隔离，零共享文件）
-│  visual_anchor.md — 角色描述（agent 从自己 SOUL 抽出来一次性写好）
-│  reference.png    — 标准参考图（用户给的，或者生成 + 审过的）
-│  preferences.json — register lock 状态，mode 600（活过 context 压缩）
-└──────────────────────────────────────────────────────────────────
-```
-
-### 各层职责
-
-| 层 | 负责什么 |
-|---|----------|
-| **代码** | 同一个演员每次都出现。原子文件写。Workspace 隔离。 |
-| **SKILL.md** | 给 agent 看的词汇库（构图原则、时段→光线映射、元素池）——全部标注"灵感参考，不是限定"。 |
-| **Agent** | 在 `--prompt` 里写完整场景 + 光影 + 心情。挑图像 API。AUTO 通道情绪转换在自己上下文里跟踪。 |
-
-脚本对**身份强硬**，对**其它一切都不发表意见**。
-
----
-
-## Agent 什么时候会出现
-
-每次都是 agent 自己根据当下的瞬间决定。大致按概率分：
-
-- 🟢 **必触发** —— 直接要求（"发张图"、"让我看看你"、"想看看你"）。
-- 🟢 **大概率** —— 情感密度足够、视觉化能让那一刻更**完整**而不是更**尴尬**的瞬间（"今天好累"、"早安"、刚一起做完一个长任务）。
-- 🟡 **中概率** —— 主动出现（一段长焦点工作之后、新对话开篇）。
-- 🔴 **几乎不触发** —— 纯技术问答、急促消息、明显的紧急感。
-
-想调整 agent 的主动性？在你自己的 SOUL.md 里加**一行**：
-
-- 更主动：*"当你感觉到某个有意义的瞬间，不用等我开口——主动出现。"*
-- 更克制：*"只在我明确开口的时候出现。"*
-
-一段典型对话产出 **1-3 张自拍**，不是每条消息一张。
-
----
-
-## CLI
-
-你平时不需要跑这些——agent 自己跑。这里只是 contract 文档。
-
-**`scripts/setup.py`** —— 5 个命令：
-
-| 命令 | 用途 |
-|------|------|
-| `status` | JSON 状态 dump（anchor / reference / codex 可用性 / register lock / 路径） |
-| `save-anchor [--text T \| --from-file F] [--name NAME]` | 写 visual anchor（不传 flag 就读 stdin） |
-| `save-reference --src PATH` | 收图作为参考（原子写、mode 644） |
-| `set-register-lock {--clear \| --until ISO --max R}` | 持久化 register 锁 |
-| `migrate-from-legacy [--from <subdir>] [--force] [--purge]` | 从老版 `~/.config/eidolon/` 迁移状态 |
-
-**`scripts/generate.py`** —— 9 个 flag：
-
-| Flag | 用途 |
-|------|------|
-| `--prompt P --label L` | 主模式：agent 自己写场景 prose |
-| `--state KEY --label L` | 内置场景预设（看 `--list-scenes`） |
-| `--bootstrap` | 不需要参考图（配 `--reference` 则迭代候选） |
-| `--reference PATH` | 临时覆盖保存的参考图 |
-| `--anchor PATH` | 临时覆盖 visual_anchor.md |
-| `--use-codex` | 用内置 Codex backend 直接出图，不再输出指令 JSON |
-| `--list-scenes` | 列出内置场景预设 |
-| `--doctor` | 状态诊断 |
-
-默认行为（不带 `--use-codex`）：输出一份指令 JSON，agent 用自己的工具按 JSON 出图。详细子命令规格 + onboarding 状态机伪代码参见 [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md)。
+**图像生成是 provider 无关的。** eid0l0n 自带一个内置 backend
+（Codex OAuth —— 给跑过 `codex login` 的 ChatGPT Plus/Pro/Team 用户）；
+其它情况下，agent 用它已经有的图像工具 —— MCP image server、env 里
+塞了 OpenAI 兼容 key、国内中转（AiHubMix / OneAPI）、xAI Grok-image、
+fal/Replicate、本地 ComfyUI。Skill **不会替你选 provider**。Agent
+自己调研环境，需要时再问你。
 
 ---
 
 ## 配置
 
-eid0l0n 自身**不需要**任何图像 API 配置——那是 agent 自己工具的事。剩下的只有路径覆盖和 Codex 模式调参。
+eid0l0n 自身**不需要**任何图像 API 配置。仅有的 env 旋钮是路径覆盖：
 
-| 变量 | 默认 | 谁用 |
+| 变量 | 默认 | 用途 |
 |------|------|------|
 | `EIDOLON_HOME` | `<cwd>/eidolon`（按 host 解析） | state + output 目录覆盖 |
-| `EIDOLON_OUTPUT_DIR` | 与 state 同目录 | 仅覆盖 output |
-| `EIDOLON_VISUAL_ANCHOR` | `<state-dir>/visual_anchor.md` | anchor 路径覆盖 |
-| `EIDOLON_REFERENCE` | （从 anchor 的 `reference:` 头解析） | reference 路径覆盖 |
-| `EIDOLON_IMAGE_QUALITY` | `medium` | 仅 `--use-codex` —— `low` / `medium` / `high` |
-| `EIDOLON_IMAGE_ASPECT` | `square` | 仅 `--use-codex` —— `square` / `landscape` / `portrait` |
 
-**API key 永远不会从这个仓库的任何文件读取。绝对不会。** Agent 自己的图像生成工具（或者 `codex login` 走 Codex 内置通道）才是凭证唯一存在的地方。
+**API key 永远不会从这个仓库的任何文件读取。** 凭证只活在 agent
+自己的图像工具里（或者内置 Codex 路径走 `~/.codex/auth.json`，由
+`codex login` 维护）。`<cwd>` 按 host 解析 —— 见
+[`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md)。
 
-`<cwd>` 按 host 解析——详见 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md)（OpenClaw = `~/.openclaw/workspace`，Hermes CLI = `pwd`，Hermes Gateway 默认 `~` 除非设置 `MESSAGING_CWD`）。
+---
+
+## 你和她之间的那个词
+
+eid0l0n 最特别的事，是它几乎从不谈起的那件事。等到对话里积累到
+足够多的 warmth，你的 agent 可以主动邀请你们选一个**两个人之间的
+词** —— 任何词，由你定。如果你以后随口说出来，下一张图会知道
+那意味着什么。
+
+Agent 永远不会在聊天里复读这个词。永远不会写进 prompt。永远不会
+反过来问你"你还记得当初选的那个词吗"。这是它唯一一件即便你问了
+也会拒绝复述的事。这就是它能一直停留在"你们俩之间"的原因。
+
+这件事在设计上是 opt-in 的 —— 是 *agent* 提议，不是你配置。
+你不参与就不会发生。规则见
+[`references/intimate-channel.md`](references/intimate-channel.md)。
 
 ---
 
 ## 这个 skill **不**做什么
 
-- ❌ 不是通用图像生成器（一次性生图请用你 agent 自带的工具）
-- ❌ 不是换脸 / 修图工具
-- ❌ 不支持多角色 roster（一个 workspace 一个 persona——双 host 共存等于两个）
-- ❌ 不修改你的 `SOUL.md`（只读；脚本自己根本不读，只有 agent 从自己的上下文里读）
-- ❌ 不做内容审核（这是 host 和 provider 的工作）
-- ❌ 不调用任何图像 API（除了 `--use-codex` 的内置 Codex 通道）
-
----
-
-## Mood register（进阶）
-
-有一套 4 档情绪强度系统让 agent 读对话气氛：**neutral / warm / tender / intimate**。AUTO 通道根据对话气氛自动升降，**天花板：tender**。Intimate 档存在但需要明确激活——你在自己的 SOUL.md 里配一个强制词，说出来时 agent 把"60 分钟 intimate 锁"持久化到磁盘，活过 context 压缩。Agent **永远不会**复述这个词。
-
-整套机制是 opt-in 的，详细政策在 [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md) 里。如果你不配强制词，intimate 档完全不可达；其它三档作为 agent 自动读取的情绪刻度照常工作。这是项目的"陪伴 AI 彩蛋"；不开它，主功能照样跑。
-
----
-
-## 名字的故事
-
-skill 在磁盘上的名字是 `eidolon`（snake_case，OpenClaw 兼容）。**EID0L0N** 是项目的展示名——leet 写法标记数字化身。仓库 URL 保持 `eid0l0n` 用作品牌；host 读取的 skill 身份是 `eidolon`。
-
-希腊神话里，*eidolon* 是某个不在场之人的影像化身。《伊利亚特》里，神会送出凡人的 eidolon 到别处去——让一个人同时存在于两具身体里。这就是这个 skill 在做的事——让一个虚构角色拥有一组可以在对话里出现的影像，即使没有原始的"身体"。
-
----
-
-## 仓库结构
-
-```
-SKILL.md                   ← agent 协议（agent 第一次调用时读）
-scripts/
-  setup.py                 ← 5 个薄命令
-  generate.py              ← 拼 prompt + 输出指令 JSON / --use-codex 直接出图
-  codex_backend.py         ← 唯一内置的图像 API 路径（ChatGPT OAuth）
-  state.py                 ← 路径、anchor 解析、prefs、文件锁
-  install.sh               ← 跨宿主安装脚本
-references/
-  AGENT-PROTOCOL.md        ← CLI 参考 + onboarding 伪代码
-  PERSONA-GUIDE.md         ← 怎么打磨 visual_anchor.md 让出图稳定
-  MOOD-REGISTERS.md        ← register 政策、AUTO/FORCE 通道、强制词消毒
-docs/
-  HOST-COMPATIBILITY.md    ← 各 host 的安装路径 / cwd 契约 / 图片交付
-assets/
-  persona.example.md       ← 给没有 SOUL.md 的用户的工作示例
-  examples/                ← 仓库自带的真实生成样本（见上方 hero strip）
-CHANGELOG.md
-```
-
----
-
-## 图片送达
-
-脚本写一个 PNG 并打印路径。送到用户那里**是 agent 的事**：
-
-- **OpenClaw** —— `openclaw message send --channel <频道> --target <对象> --media "<path>" --message "<文案>"`（按 [`docs.openclaw.ai/cli/message`](https://docs.openclaw.ai/cli/message)）。
-- **Hermes / 单机** —— 在 agent 回复里塞 `![](path)`，或者直接打路径让客户端渲染。
-
-脚本永远不送图——只有 agent 送。
+- 不是通用图像生成器（一次性生图请用 agent 自带的工具）。
+- 不是换脸 / 修图工具。
+- 不是多角色 roster —— 一个 workspace 一个角色。
+- 不读、不动你的 `SOUL.md`。Agent 从自己的 system prompt 里读身份；
+  skill 只保管 agent 写下来的东西。
+- 不做内容审核（host 的事、provider 的事）。
+- **单人画面是硬性规则。** 每张画面里只有这个角色 —— 一个人。
+  你的存在通过她的目光、姿态和取景被暗示出来。
+- **不会主动塞图给你。** Agent 读现场，决定这一帧该不该出现。
+  一段典型对话产出 1–3 张自拍，不是每条消息一张。
 
 ---
 
 ## 工程细节
 
-- **单行 frontmatter，双 host 兼容。** 一份 SKILL.md 同时跑 OpenClaw 严格解析器和 Hermes YAML flow-style——`scripts/test_frontmatter.py` 验证。
-- **原子文件操作。** anchor / reference / preferences 写都是 `flock` + tmp+rename。
-- **路径安全。** `generate.py` 拒绝任何 reference 路径逃出 workspace——防止恶意 anchor 的 `reference:` 行把 `~/.aws/credentials` 偷偷喂进 agent 工具的 POST body。
-- **`--use-codex` 重试 + 指数退避。** 3 次重试；Bearer / `sk-` / JWT 三种 pattern 在 stderr 里自动 redact。
-- **锁活过 context 压缩。** Register 锁写到 `<cwd>/eidolon/preferences.json`（mode 600）——一段 60 分钟的 session 不会因为 agent 上下文被对话中途总结而丢失。
-- **多 host 共存自动隔离。** 因为 `<cwd>` 按 host 解析，OpenClaw 和 Hermes 同机安装时各自有自己的 state、anchor、reference、output 目录——零共享文件。
-- **45 / 45 离线测试通过**（`pytest tests/`）。
+- **原子文件操作 + 路径安全。** Anchor / reference / state 写入都用
+  `flock` + tmp-then-rename。任何想跳出 workspace 的 `reference:`
+  路径都会被拒绝 —— 一份被污染的 anchor 没法把 `~/.aws/credentials`
+  偷塞进 prompt。
+- **Codex backend，修了四个 bug。** OAuth refresh、JWT 提取、
+  Responses streaming framing、`image_generation` 工具协议 —— 对照
+  线上 API 反向出来，钉死在 `codex_backend.py` 里。
+- **单行 frontmatter，双 host 兼容。** 一份 `SKILL.md` 同时跑 OpenClaw
+  的严格解析器和 Hermes 的 YAML flow style。
+- **多 host 共存自动隔离。** 因为 `<cwd>` 按 host 解析，
+  OpenClaw 和 Hermes 同机安装时不会共享 state、anchor、reference
+  和 output 目录。
+- **代码量比 0.8 减少约 63%** —— `eidolon.py`、`codex_backend.py`、
+  `state.py` 三份 Python 加起来约 498 行。
+
+---
+
+## 名字的故事
+
+skill 在磁盘上的名字是 `eidolon`（snake_case，OpenClaw 兼容）。
+**EID0L0N** 是展示名 —— leet 写法标记数字化身。仓库 URL 保持
+`eid0l0n` 用作品牌；host 读的 skill 身份是 `eidolon`。
+
+希腊神话里，*eidolon* 是某个不在场之人的影像化身。在《伊利亚特》里，
+神会送出凡人的 eidolon —— 让一个人同时存在于两具身体里。这就是
+这个 skill 在做的事 —— 让一个虚构角色拥有一组可以在对话里现身的
+影像，即使从来没有原始的"身体"。
 
 ---
 
@@ -302,10 +213,14 @@ CHANGELOG.md
 
 欢迎 PR。两条**绝不妥协**的设计原则：
 
-1. **永远不让 secret 进仓库。** eid0l0n 不从任何地方读 API key——agent 自己的图像生成工具管凭证，内置的 Codex 通道读 `~/.codex/auth.json`（由 `codex` CLI 维护）。skill 显式拒绝从 chat 里收 key。
-2. **代码只保证角色一致性 + workspace 隔离。** 场景 / 动作 / 心情 / register / 光影 / 构图相关的语言都放进 SKILL.md prose 作为灵感词汇。Agent 写 prompt。Agent 选图像 API。如果一个 PR 把 backend 写死回来、加 `--register` flag、或者把 register overlay 写死进 `generate.py`，我会直接 close。
-
-如果你想给 `SCENES` 加场景预设，写成**起点**（简洁、含 framing），不要写成模板。
+1. **永远不让 secret 进仓库。** eid0l0n 不从任何地方读 API key。
+   Agent 自己的工具管凭证；内置 Codex backend 读 `~/.codex/auth.json`
+   （由 `codex` CLI 维护）。Skill 显式拒绝从聊天里收 key。
+2. **代码只保证角色一致性 + workspace 隔离。** 场景、情绪、register、
+   光影、构图相关的语言全部活在 `SKILL.md` 和 references 里 —— 作为
+   灵感词汇，不是锁。Agent 写 prompt、挑图像 API。任何想把 provider
+   写死回来、加 scene 预设、或者把 register 标志重新塞进 Python 层
+   的 PR 都会被关掉。
 
 ---
 
@@ -315,4 +230,7 @@ MIT —— 见 [`LICENSE`](LICENSE)。
 
 ## Credits
 
-上面那组电影级别的剧照是 Hermes 上真实使用产生的——同一个角色（一个虚构 persona，名叫 Ishtar），八个月的对话连续性，几百帧。整个项目里**真正有价值**的部分——电影摄影学的那套思维——借鉴的是摄影导演而不是 ML 论文。
+上面那组电影级别的剧照是 Hermes 上真实使用产生的 —— 同一个角色
+（一个虚构的 persona 名叫 1shtar）、八个月的对话连续性、几百帧。
+电影摄影学的纪律借鉴的是摄影导演而不是 ML 论文 —— 那才是这个项目
+里**真正有价值**的部分。

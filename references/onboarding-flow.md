@@ -249,6 +249,11 @@ reference: <abs path to reference.png>
 The first line is `reference: ` followed by the absolute path. Then
 a blank line. Then the H1. Then the description.
 
+This `reference:` header is informational only — kept for 0.7.x
+migration recognition. The actual reference image is sourced by
+filename (`reference.png` / `.jpg` / `.jpeg` / `.webp`) in the state
+dir, so the path written here is not consumed at render time.
+
 **Under 200 words.** This is a soft ceiling that matters. You'll be
 tempted to write more — to capture every nuance you discussed. Don't.
 A long anchor dilutes the model's attention across too many features
@@ -362,9 +367,10 @@ The 暗号 (the word) section starts empty. You'll learn from
 not always. Don't pre-populate.
 
 The 里程碑 section gets exactly one line on day zero: today's date,
-"first meeting, settled the look." Future milestones (first tender
-shot, first time they called you by name, when the reference got
-upgraded) accumulate here over the lifetime of the relationship.
+"first meeting, settled the look." Future milestones (first time the
+warmth layer opened, first time they called you by name, when the
+reference got upgraded) accumulate here over the lifetime of the
+relationship.
 
 The "things she knows about me" section starts empty. It fills in
 slowly, deliberately — only what they explicitly told you matters.

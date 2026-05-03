@@ -17,9 +17,11 @@ agent on, like a phone is to an app.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](CHANGELOG.md) [![agentskills.io](https://img.shields.io/badge/spec-agentskills.io-green.svg)](https://agentskills.io)
 
+> Upgrading from 0.8.x? See [`docs/MIGRATION-FROM-0.8.md`](docs/MIGRATION-FROM-0.8.md) — there's a one-step `rm` you'll want to do.
+
 ---
 
-## Two personas. Same skill. Locked identity, infinite scenes.
+## Two characters. Same skill. Locked identity, infinite scenes.
 
 Real generations from **two characters running on the same install** —
 `1shtar` on Hermes (long black-and-red hair, gold horns, red halo) and
@@ -149,7 +151,6 @@ path overrides:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `EIDOLON_HOME` | `<cwd>/eidolon` (host-resolved) | state + output dir override |
-| `EIDOLON_OUTPUT_DIR` | same as state dir | output-only override |
 
 **API keys are never read from any file in this repo.** Credentials live in
 the agent's own image tool (or `~/.codex/auth.json`, managed by
