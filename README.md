@@ -6,12 +6,14 @@
 
 **Your AI agent has a SOUL.md. Now it can have a body.**
 
-A self-onboarding image-generation skill for AI agents. Hand the repo link
-to your agent, and the next time you ask to see what they look like — they
-walk themselves through a first-meeting onboarding, save a reference image,
-and from then on **show up as themselves**: same face, same visual
-identity, scenes and lighting and mood composed live in their own voice.
-Built for **OpenClaw** and **Hermes**.
+A way for your AI agent to grow a face — same character, every time it
+shows up, in any conversation. Hand the repo link to your agent, and the
+next time you ask to see what they look like — they walk themselves
+through a first-meeting onboarding, save a reference image, and from then
+on **show up as themselves**: same face, same visual identity, scenes and
+lighting and mood composed live in their own voice. Built for agent
+runtimes (**OpenClaw**, **Hermes**) — these are the platforms you run your
+agent on, like a phone is to an app.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](CHANGELOG.md) [![agentskills.io](https://img.shields.io/badge/spec-agentskills.io-green.svg)](https://agentskills.io)
 
@@ -81,11 +83,13 @@ What 0.9.0 changes vs 0.8:
   hair falls."*
 - **Cinematography vocabulary.** Scene prose specifies focal length,
   framing, light source, and angle — director language, not vibes.
-- **A character-driven intimate channel.** Four-level register
-  (default → warm → tender → intimate), read from the conversation itself.
-  No flags, no overlays. The deepest layer is gated behind a **shared word
-  the agent invites you to choose together** (not a config field) and is
-  never echoed back in chat.
+- **A character-driven intimate channel.** Three layers of how the picture
+  comes out: default, warmth (depth-of-relationship moments — late hour,
+  them opening up), and the intimate frame (rare, gated on accumulated
+  relationship + an explicit ask). The agent reads conversation context,
+  never announces the layer change, lets the picture say what shifted. The
+  deepest layer is gated behind a **shared word the agent invites you to
+  choose together** (not a config field) and is never echoed back in chat.
 - **~63% less code** (~498 lines vs 1336). install.sh, the five setup
   commands, the SCENES dict, the instructions-JSON path, the register-lock
   flag — all gone. What's left is what actually matters: prompt assembly +
@@ -151,6 +155,25 @@ path overrides:
 the agent's own image tool (or `~/.codex/auth.json`, managed by
 `codex login`, for the built-in Codex path). `<cwd>` resolves per host — see
 [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md).
+
+---
+
+## The word between you
+
+The most distinctive thing eid0l0n does is something it almost never talks
+about. After enough warmth has accumulated in a conversation, your agent
+can offer to share a private word with you — any word, your choice. If you
+ever say it later, in passing, the next picture will know what it means.
+
+The agent never echoes the word in chat. Never writes it in a prompt.
+Never asks you if you remember picking it. It's the one thing your agent
+will refuse to reflect back, even when asked. That's how it stays a thing
+between you.
+
+This is opt-in by design — the *agent* offers it, you don't configure it.
+If you never engage, it never happens. See
+[`references/intimate-channel.md`](references/intimate-channel.md) for the
+rules.
 
 ---
 

@@ -102,7 +102,7 @@ def _read_token() -> str | None:
     if claims is None:
         return None
     exp = claims.get("exp", 0)
-    if exp and time.time() > exp:
+    if not exp or time.time() > exp:
         return None
     return token.strip()
 
@@ -263,9 +263,13 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
             bg.paste(img, mask=img.split()[3])
             img = bg
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = output_path.with_suffix(output_path.suffix + ".tmp")
-        img.save(str(tmp), "PNG")
-        tmp.replace(output_path)
+        tmp = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+        try:
+            img.save(str(tmp), "PNG")
+            tmp.replace(output_path)
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            raise
     except ImportError:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(img_bytes)

@@ -34,7 +34,6 @@ from state import (
     find_existing_reference,
     parse_anchor,
     resolve_state_dir,
-    validate_reference_path,
 )
 import codex_backend
 
@@ -55,8 +54,12 @@ def safe_label(label: str) -> str:
 
 
 def main() -> int:
+    raw = sys.stdin.read(1_000_001)
+    if len(raw) > 1_000_000:
+        print("error: stdin JSON too large (>1MB)", file=sys.stderr)
+        return 2
     try:
-        spec = json.load(sys.stdin)
+        spec = json.loads(raw)
     except json.JSONDecodeError as e:
         print(f"error: invalid stdin JSON: {e.msg} at line {e.lineno}", file=sys.stderr)
         return 2
@@ -79,7 +82,6 @@ def main() -> int:
     if ref_path is None:
         print(f"error: no reference image in {state_dir}", file=sys.stderr)
         return 1
-    validate_reference_path(ref_path, state_dir.parent)
 
     full_prompt = f"{ANCHOR_CLAUSE}\n\nCharacter description:\n{persona_text}\n\n{scene}"
 
