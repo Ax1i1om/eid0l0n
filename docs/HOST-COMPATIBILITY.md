@@ -21,10 +21,10 @@ The shape of the move:
 git clone https://github.com/Ax1i1om/eid0l0n /tmp/eid0l0n-src
 mkdir -p <skills-dir>/eidolon
 cp -R /tmp/eid0l0n-src/SKILL.md \
-       /tmp/eid0l0n-src/scripts \
-       /tmp/eid0l0n-src/references \
-       /tmp/eid0l0n-src/docs \
-       <skills-dir>/eidolon/
+      /tmp/eid0l0n-src/scripts \
+      /tmp/eid0l0n-src/references \
+      /tmp/eid0l0n-src/docs \
+      <skills-dir>/eidolon/
 ```
 
 `<skills-dir>` depends on the host:
@@ -43,7 +43,7 @@ OpenClaw load precedence (highest first, per `docs.openclaw.ai/concepts/agent-wo
 5. Bundled
 6. Extra skill folders (configured)
 
-Tier 4 is the only user-machine-global tier. Eidolon's state is cwd-scoped
+Tier 4 is the only user-machine-global tier. eidolon's state is cwd-scoped
 (not skill-scoped), so install-path ranking does not affect runtime behavior.
 
 OpenClaw also needs the skill enabled in `~/.openclaw/openclaw.json`. Patch
@@ -117,7 +117,7 @@ reads. The other three are for you, the agent.
 | OpenClaw | Agent workspace (e.g. `~/.openclaw/workspace/SOUL.md`) | Runtime-injected per `/concepts/soul`. **Owned by the workspace, NOT by this skill.** |
 | Hermes | `$HERMES_HOME/SOUL.md` (default `~/.hermes/SOUL.md`) | Slot #1 of system prompt, no wrapper, per `/user-guide/features/personality`: "SOUL.md is the agent's primary identity. It occupies slot #1 in the system prompt, replacing the hardcoded default identity." |
 
-Eidolon never reads or writes SOUL.md. You already have it in context — when
+eidolon never reads or writes SOUL.md. You already have it in context — when
 you author `visual_anchor.md` for the first time, you extract the visual
 description from your own SOUL and Write it to disk yourself.
 
@@ -132,9 +132,9 @@ fork is spawned depends on the host:
 
 | Host | Mechanism |
 |------|-----------|
-| OpenClaw | Use the host's sub-agent / nanoclaw spawning interface to start a fresh agent invocation under the same SOUL. The fork receives the conversation transcript verbatim and your hand-written frozen-moment note (appearance / scene / feeling). |
-| Hermes | Use Hermes' sub-agent protocol — a fresh model invocation under the same SOUL, with the last 5–10 turns and the frozen-moment note as its initial context. |
-| Standalone / no-fork host | If your host doesn't expose a fork primitive, self-prompt: write the frozen-moment note into a scratch buffer and re-enter scene-prose mode in the same session. The character contract still holds — read `visual_anchor.md` + `at-hand.md` first, write cinematographer's prose, pipe to `eidolon.py`. |
+| OpenClaw | Use the host's documented mechanism for spawning a sub-agent — primitive names vary by version, so consult OpenClaw docs for the current command. The skill assumes the sub-agent runs in the same workspace cwd and inherits the SOUL injection, with the conversation transcript and your hand-written frozen-moment note (appearance / scene / feeling) as its initial context. |
+| Hermes | Use Hermes' sub-agent invocation, whatever the current docs name it. The sub-agent inherits the workspace and SOUL like any normal agent in the host, plus the last 5–10 turns and the frozen-moment note. |
+| Standalone (no host fork primitive available) | This is a degraded fallback — true sub-agent isolation is not available, so context compression risks blurring the character between writing the scene prose and rendering. Read `visual_anchor.md` + `at-hand.md`, write cinematographer's prose, pipe to `eidolon.py`, and render anyway — but expect slightly lower consistency vs. true fork. If consistency drift becomes noticeable, ask the user to switch to a host with sub-agent support. |
 
 The fork ends after the picture. Every shot is its own present moment — no
 fork ever sees a previous fork's state, only its own frozen note plus the
@@ -145,11 +145,14 @@ two on-disk files.
 ## Image delivery
 
 Once `eidolon.py` writes the PNG and prints its absolute path, you have to
-get the picture in front of the person. This too depends on host:
+get the picture in front of the person. The path to use is whatever
+`eidolon.py` prints on its last stdout line — it looks like
+`<cwd>/eidolon/output/<slug>-<label>-<YYYYMMDD-HHMMSS-mmm>.png`. Delivery
+depends on host:
 
 | Host | Mechanism |
 |------|-----------|
-| OpenClaw | `openclaw message send --channel <channel> --target <target> --media "<path>" --message "<caption>"` per `/cli/message`. Fill `--channel` (e.g. `telegram` / `discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context. **There is no `--action` flag.** |
+| OpenClaw | `openclaw message send --channel <channel> --target <target> --media "<the absolute path eidolon.py prints on its last stdout line>" --message "<caption>"` per `/cli/message`. Fill `--channel` (e.g. `telegram` / `discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context. **There is no `--action` flag.** |
 | Hermes | No documented native image-attach API. Convention: emit `![](<absolute-path>)` markdown image link in your reply, or print the path verbatim — the client renders it. |
 | Standalone | Print the absolute path on the last stdout line. The user opens it manually. |
 
