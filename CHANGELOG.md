@@ -4,7 +4,7 @@ All notable changes to eid0l0n. Format: [Keep a Changelog](https://keepachangelo
 
 ## [0.9.0] — 2026-05-03
 
-The biggest rewrite since 0.8.0. ~63% code removed (1336 → ~498 lines).
+The biggest rewrite since 0.8.0. ~62% code removed (1336 → ~504 lines).
 
 The frame: the agent IS the character. Code only does what code must
 (protocol reverse-engineering, string concat, file IO). Everything
@@ -12,7 +12,7 @@ character-shaped — onboarding conversation, scene prose, error
 phrasing, the layer changes — is the agent's, in character.
 
 ### Added
-- `scripts/eidolon.py` — minimal entry (~99 lines), reads scene prose
+- `scripts/eidolon.py` — minimal entry (~101 lines), reads scene prose
   from stdin, prepends anchor clause + character description, calls
   codex_backend.
 - `<state>/eidolon/at-hand.md` — timezone, picture rhythm, the word
@@ -35,7 +35,7 @@ phrasing, the layer changes — is the agent's, in character.
   these features. "EXACTLY" was wrong vocabulary.
 - `state.py` slimmed to ~127 lines: paths, parse_anchor, atomic
   write, path safety, legacy detection.
-- `codex_backend.py` patched + simplified to ~272 lines.
+- `codex_backend.py` patched + simplified to ~276 lines.
 - `gpt-image-2` is the documented model on the OpenAI path
   (codex_backend already used it).
 

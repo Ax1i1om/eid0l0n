@@ -92,7 +92,7 @@ What 0.9.0 changes vs 0.8:
   never announces the layer change, lets the picture say what shifted. The
   deepest layer is gated behind a **shared word the agent invites you to
   choose together** (not a config field) and is never echoed back in chat.
-- **~63% less code** (~498 lines vs 1336). install.sh, the five setup
+- **~62% less code** (~504 lines vs 1336). install.sh, the five setup
   commands, the SCENES dict, the instructions-JSON path, the register-lock
   flag — all gone. What's left is what actually matters: prompt assembly +
   Codex OAuth + atomic file ops.
@@ -210,7 +210,7 @@ rules.
 - **Co-installation is automatic.** Because `<cwd>` resolves per host,
   OpenClaw and Hermes on the same machine never share state, anchor,
   reference, or output dir.
-- **~63% code reduction vs 0.8** — ~498 lines of Python across `eidolon.py`,
+- **~62% code reduction vs 0.8** — ~504 lines of Python across `eidolon.py`,
   `codex_backend.py`, and `state.py`.
 
 ---
