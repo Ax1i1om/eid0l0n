@@ -1,63 +1,48 @@
-"""Tests for generate.build_prompt — composes the API prompt from scene + persona."""
-from __future__ import annotations
+"""Tests for eidolon.py's prompt assembly building blocks."""
+import sys
+from pathlib import Path
 
-import generate
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-
-PERSONA = "Tall woman, copper hair, green eyes, freckled cheeks."
-SCENE = "Standing on a rooftop at dusk, wind catching her coat."
-
-
-def test_has_reference_emits_preserve_clause():
-    """has_reference=True (no iterate) → 'Preserve the character EXACTLY' clause."""
-    out = generate.build_prompt(SCENE, PERSONA, has_reference=True, iterate_on_reference=False)
-    assert "Preserve the character EXACTLY" in out
+from eidolon import ANCHOR_CLAUSE, safe_label
 
 
-def test_iterate_on_reference_emits_iterate_clause():
-    """iterate_on_reference=True → 'Iterate on the attached image' clause."""
-    out = generate.build_prompt(SCENE, PERSONA, has_reference=True, iterate_on_reference=True)
-    assert "Iterate on the attached image" in out
+def test_anchor_clause_uses_anatomical_landmarks():
+    """Spec: anchor_clause uses bone structure / eye spacing / hair / etc.,
+    not vague 'EXACTLY'."""
+    assert "bone structure" in ANCHOR_CLAUSE
+    assert "eye spacing" in ANCHOR_CLAUSE
+    assert "hair" in ANCHOR_CLAUSE
+    assert "EXACTLY" not in ANCHOR_CLAUSE  # diffusion-models-mis-read this
 
 
-def test_no_reference_emits_establish_canonical_clause():
-    """has_reference=False, iterate=False → 'Establish a canonical reference portrait' clause."""
-    out = generate.build_prompt(SCENE, PERSONA, has_reference=False, iterate_on_reference=False)
-    assert "Establish a canonical reference portrait" in out
+def test_anchor_clause_explicitly_frees_pose_expression_lighting():
+    """Spec: explicit free-list prevents over-locking shot variability."""
+    assert "pose" in ANCHOR_CLAUSE
+    assert "expression" in ANCHOR_CLAUSE
+    assert "lighting" in ANCHOR_CLAUSE
 
 
-def test_persona_and_scene_appear_verbatim_in_all_branches():
-    """All three branches must include both persona_text and scene_text verbatim."""
-    cases = [
-        (True, False),
-        (True, True),
-        (False, False),
-    ]
-    for has_ref, iterate in cases:
-        out = generate.build_prompt(SCENE, PERSONA, has_reference=has_ref, iterate_on_reference=iterate)
-        assert PERSONA in out, f"persona missing for has_ref={has_ref}, iterate={iterate}"
-        assert SCENE in out, f"scene missing for has_ref={has_ref}, iterate={iterate}"
+def test_anchor_clause_first_person():
+    """Character voice: 'That picture is me' not 'Preserve the character'."""
+    assert "me" in ANCHOR_CLAUSE.lower() or "my" in ANCHOR_CLAUSE.lower()
 
 
-def test_output_structure_anchor_then_character_then_scene():
-    """Output order: <anchor_clause>, then 'Character description:', persona, then scene."""
-    out = generate.build_prompt(SCENE, PERSONA, has_reference=True, iterate_on_reference=False)
-    anchor_idx = out.find("Preserve the character EXACTLY")
-    char_header_idx = out.find("Character description:")
-    persona_idx = out.find(PERSONA)
-    scene_idx = out.find(SCENE)
-
-    assert anchor_idx == 0, "anchor clause must lead the prompt"
-    assert anchor_idx < char_header_idx < persona_idx < scene_idx, (
-        f"order broken: anchor={anchor_idx} header={char_header_idx} "
-        f"persona={persona_idx} scene={scene_idx}"
-    )
-    # Exact separator between anchor and 'Character description:'.
-    assert "\n\nCharacter description:\n" in out
+def test_safe_label_strips_special_chars():
+    assert safe_label("hello world!@#") == "hello_world"
 
 
-def test_scene_is_stripped_before_assembly():
-    """build_prompt strips leading/trailing whitespace from scene_text."""
-    out = generate.build_prompt("   " + SCENE + "   \n", PERSONA,
-                                has_reference=False, iterate_on_reference=False)
-    assert out.endswith(SCENE)
+def test_safe_label_truncates_to_30():
+    assert len(safe_label("a" * 100)) == 30
+
+
+def test_safe_label_empty_falls_back_to_shot():
+    assert safe_label("") == "shot"
+
+
+def test_safe_label_only_special_chars_falls_back():
+    assert safe_label("!@#$%^") == "shot"
+
+
+def test_safe_label_preserves_underscore_and_dash():
+    assert safe_label("my-test_label") == "my-test_label"
