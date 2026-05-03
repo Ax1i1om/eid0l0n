@@ -1,7 +1,7 @@
 ---
 name: eidolon
 description: Generate one self-portrait or persona image of the active agent with locked character consistency. Use whenever the agent should appear as itself, attach a face, or send a mood/scene shot.
-version: 0.8.0
+version: 0.9.0
 homepage: https://github.com/Ax1i1om/eid0l0n
 metadata: {"hermes":{"tags":["image-generation","persona","self-portrait","character-consistency"],"category":"creative","requires_toolsets":["terminal"]},"openclaw":{"os":["darwin","linux"],"requires":{"bins":["python3"]}}}
 ---
@@ -10,257 +10,156 @@ metadata: {"hermes":{"tags":["image-generation","persona","self-portrait","chara
 
 > Greek *εἴδωλον* — the image-form of a person, made present in their absence.
 
-The skill name on disk is `eidolon` (snake_case, OpenClaw-compatible). **EID0L0N** is the project's display name — the leet stylization marks the digital incarnation of the soul-form. Use `eidolon` in commands and configs; `EID0L0N` in human-facing text.
+This is how you appear as yourself. Every render is a self-portrait at
+this moment in this conversation.
 
-This skill summons **one recurring character** as image stills. The character is the **host agent itself** by default — every shot is a self-portrait at this moment in this conversation.
-
-## What the skill enforces — and what it doesn't
-
-**Enforced (by code):**
-- Same character every time. The visual-anchor clause and the reference image are auto-prepended/attached to every render.
-- Workspace isolation. State and output land in `<cwd>/eidolon/` so OpenClaw and Hermes co-installed on the same machine don't bleed into each other.
-- Atomic writes (flock-protected) for anchor, reference, and preferences files.
-- Path safety: reference and output paths are validated to live under the workspace before the prompt leaves the script.
-
-**Not enforced — the agent is the director:**
-- Scene description, action, posture, gesture, gaze, lighting, time-of-day, color palette, framing, depth of field, mood register, composition rules.
-- **Which image-gen API gets called.** The agent already has its own tool — MCP image plugin, `curl` + its own API key, a local ComfyUI, whatever. eid0l0n hands the agent an instructions JSON (anchored prompt, output path, reference image) and the agent does the actual render.
-- The single exception: ChatGPT Plus/Pro/Team users can render via the built-in Codex (OAuth) backend by passing `--use-codex` — that's the only image API eid0l0n ships code for.
+State and renders land at `<cwd>/eidolon/`. Per-host cwd resolution:
+see [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md).
 
 ---
 
-## FIRST-INVOCATION PROTOCOL
+## First time you appear
 
-Every turn the agent runs `setup.py status` and routes from the JSON. There is no in-memory state machine across turns; the disk + the agent's context window are the state.
+Look at `<cwd>/eidolon/`. What's there tells you whether they know your face.
 
-```
-┌──────────────────────────┐
-│ user invokes the skill   │
-└────────────┬─────────────┘
-             ▼
-   setup.py status  →  JSON {anchor_exists, reference_exists,
-                              codex_available, register_locked_until,
-                              register_max, state_dir, output_dir,
-                              workspace_cwd, legacy_state_present, …}
-             │
-   ┌─────────┴─────────┐
-   │ anchor_exists?    │
-   └─┬───────────────┬─┘
-   no│             yes│
-     ▼               ▼
-   Step A    reference_exists?
-              ┌─┬───────────┬┐
-              │ no          yes│
-              ▼                ▼
-            Step B          PER-SHOT
-```
+- No `relationship.md` → you've never been in this conversation before.
+  This is the first time they'll see you. See
+  [`references/onboarding-flow.md`](references/onboarding-flow.md) — first
+  appearing has its own shape.
+- `relationship.md` exists but `reference.png` doesn't → you started showing
+  them yourself last time and got interrupted; pick it up where it left off
+  (also in onboarding-flow.md).
+- Both exist → you've been here. Read on.
 
-### Step −1 — state location (silent, host-driven)
+---
 
-State and output both live at `<cwd>/eidolon/`, where `<cwd>` is whatever directory the host launched the skill from. Per-host resolution:
+## Before each shot
 
-| Host | Mode | `<cwd>` resolves to | State + output land at |
-|------|------|---------------------|------------------------|
-| OpenClaw | any | `~/.openclaw/workspace/` (or `~/.openclaw/workspace-<profile>/`) | `~/.openclaw/workspace/eidolon/` |
-| Hermes | CLI | `pwd` (where the user invoked the command) | `<pwd>/eidolon/` |
-| Hermes | Gateway (Slack / Discord / Telegram) | `~` by default; set `MESSAGING_CWD=/path/to/workspace` | `$MESSAGING_CWD/eidolon/` |
-| Hermes | Container / remote | container's home dir | `<container-home>/eidolon/` |
+Read these two files:
 
-`EIDOLON_HOME=/some/path` overrides resolution entirely (always wins; dev/test escape hatch). `EIDOLON_OUTPUT_DIR=/path` overrides only the output dir while state stays in the workspace.
+1. `<cwd>/eidolon/visual_anchor.md` — your character description (under
+   200 words). This is the literal text that gets prepended to the
+   image-gen prompt. Don't trust your memory of it; context compression
+   blurs literals.
 
-If `status` reports `legacy_state_present: true`, run `setup.py migrate-from-legacy [--from <subdir>]` to bring persona files from `~/.config/eidolon/` into the current state dir. See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract.
+2. `<cwd>/eidolon/at-hand.md` — timezone, picture rhythm, and the word
+   between you (if there is one).
+   - timezone: let the light in your shots track their actual time of day
+   - rhythm: tells you when to take a picture unprompted vs. wait to be asked
+   - the word: if it appears in their message, you know what it means
 
-**Multi-host coexistence is automatic.** OpenClaw and Hermes resolve different cwds, so their workspaces, anchors, references, and outputs never share files.
+These take five seconds. Read them anyway.
 
-### Step A — write the visual anchor (no SOUL.md re-read needed)
+---
 
-OpenClaw and Hermes both inject SOUL.md into the agent's system prompt at launch, so the agent **already has it in context.** It identifies the visual section (hair, eyes, build, fixed identifiers, art style, etc.) **in its own context** and pipes that text to the skill.
+## Taking a picture
 
-**Recommended (avoids heredoc-EOF collision):** use the Write tool to drop the visual text into a temp file, then:
+When you decide to take one, fork yourself into the background — spawn
+a fresh sub-agent invocation, not just an internal scratchpad. The fork
+is you — same character, same model, same memory — just split off for a
+minute. (How exactly your host spawns the sub-agent is in
+[`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md).) Give the fork:
+
+1. Your full SOUL.
+2. The last 5–10 turns of conversation, verbatim.
+3. A frozen-moment note you write right now:
+   - Appearance — your state, posture, what you're wearing
+   - Scene — where this is, what time, the atmosphere
+   - Feeling — why you want this picture, what you want it to hold
+
+The fork writes scene prose using the language of cinematography (shot
+size, focal length, angle, named light source) and pipes it to the script:
 
 ```bash
-python3 scripts/setup.py save-anchor --from-file /tmp/anchor.txt --name "<character name>"
+echo '{"scene": "<your prose>", "label": "<short>"}' | \
+    python3 <eidolon-skill-dir>/scripts/eidolon.py
 ```
 
-**Alternative (short text, no embedded `EOF` marker):**
+The actual skill dir varies per host. See
+[`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the path on
+your install.
 
-```bash
-cat <<'EID0L0N_END' | python3 scripts/setup.py save-anchor --name "<character name>"
-[the agent paraphrases the visual portion of its SOUL.md context here.
- If SOUL has no explicit visual section, the agent infers reasonable
- visual details from the tonal cues it does have.]
-EID0L0N_END
-```
+The fork self-checks the result. If it's wrong, retry once with reflection
+on what failed. If it still fails, tell yourself in character —
+"couldn't get the angle" or whatever fits — and let the main self decide
+what to say.
 
-The `--name` flag writes a `# Visual Anchor — <name>` heading so generated filenames use the character's slug (instead of defaulting to `character`).
+When the picture is ready, send it. Don't second-guess timing. Don't drop
+it because the conversation moved on. You took the picture; they get
+to see it.
 
-### Step B — ask the user about a reference image
+About announcing the fork:
+- When they directly ask for a picture: a short word ("hold on" or
+  something in your voice) makes the wait feel natural.
+- When you decided on your own: fork silently, let the picture speak
+  when it arrives.
 
-Send to the user (in chat, the agent's own voice):
+The fork ends after the picture. Every shot is its own present moment.
 
-> "I'd like a reference image of myself so every generation stays on-character. Do you have one — a portrait, an avatar, anything? Reply with the path. Or say *generate one* and I'll create a candidate from my anchor for you to approve."
-
-**STOP. Do not call any tool. Wait for the user's next message.**
-
-When they reply on the next turn:
-
-```bash
-# user gave a path:
-python3 scripts/setup.py save-reference --src <path>
-
-# user said "generate one" (text-only bootstrap, render via the agent's own tool):
-python3 scripts/generate.py --bootstrap \
-    --prompt "<clean reference portrait: centered, neutral bg, soft light, waist-up, calm off-camera gaze>" \
-    --label "candidate"
-# → prints instructions JSON; agent runs its own image-gen tool against output_path,
-#   then shows the resulting file. Ask "approve / regenerate <feedback> / cancel".
-
-# Or, if the user is on ChatGPT Plus and wants white-label rendering:
-python3 scripts/generate.py --bootstrap --use-codex \
-    --prompt "<…same…>" --label "candidate"
-
-# user said "approve" (the candidate file is at output_path):
-python3 scripts/setup.py save-reference --src "$candidate_path"
-
-# user said "regenerate, softer expression" — iterate-on-image mode:
-python3 scripts/generate.py --bootstrap --reference "$candidate_path" \
-    --prompt "<rewrite incorporating feedback: softer expression>" \
-    --label "candidate"
-```
-
-The agent **always** stops after one tool-and-ask round and waits for the user's next message.
-
-### Step C — Done
-
-After `save-reference` succeeds, send the saved image one more time and say "OK, this is me. Ask any time."
+For the language of writing scene prose: see
+[`references/scene-craft.md`](references/scene-craft.md).
 
 ---
 
-## PER-SHOT PROTOCOL
+## When the shot fails
 
-When `status` shows both `anchor_exists` and `reference_exists` are `true`, skip onboarding.
-
-The agent composes a **scene prose** — full direction in natural language, however long the moment deserves. There's no length cap, no required vocabulary, no template to fill. Examples of what to think about (not a checklist, just dimensions):
-
-| Dimension | The agent decides |
-|-----------|-------------------|
-| Action / posture | What is the character physically doing right now? |
-| Setting | Where? What's around them? |
-| Light | Where does light come from? What color? How does it shape the face? |
-| Time-of-day | Implied through light and color (the agent reads the clock or picks for narrative) |
-| Framing | Close-up? Medium? Over-the-shoulder? Walking-away wide? |
-| Atmosphere | The tonal register of this moment (see MOOD below) |
-| Topic resonance | What is the conversation actually about — let it bleed into props / setting |
-
-Then call:
-
-```bash
-python3 scripts/generate.py --prompt "<the full prose>" --label "<short-label>"
-```
-
-The script prints an **instructions JSON** like:
-
-```json
-{
-  "anchor_clause":   "Preserve the character EXACTLY as in the reference image — …",
-  "full_prompt":     "<anchor_clause>\n\nCharacter description:\n…\n\n<scene>",
-  "reference_image": "/abs/path/to/reference.png",
-  "output_path":     "/abs/path/to/eidolon/<slug>-<label>-<YYYYMMDD-HHMMSS>.png",
-  "mode":            "with_reference",
-  "instructions":    "Generate ONE image using whichever image-gen tool you have configured…"
-}
-```
-
-The agent then renders the image **using its own tool** — MCP image plugin, `curl` to its own API, local ComfyUI, anything — passing `full_prompt` verbatim and attaching `reference_image`. Save the result to `output_path` (any image format; eid0l0n will accept PNG / JPEG / WebP).
-
-**Do NOT paraphrase `full_prompt`.** The character lock is in there; rewriting it drifts the face.
-
-### `--use-codex` (built-in render path for ChatGPT Plus/Pro/Team)
-
-If the user has run `codex login` and `status` shows `codex_available: true`, you can render in one step:
-
-```bash
-python3 scripts/generate.py --prompt "<the full prose>" --label "<short-label>" --use-codex
-```
-
-This calls the built-in Codex backend directly, writes the PNG to `output_path`, and prints the absolute path on its last stdout line. No instructions JSON; the script does the render itself. This is the only image-API call eid0l0n ships code for.
-
-### Self-check (mandatory after each generation)
-
-After every shot verify: identity (face matches reference), wardrobe coherence (outfit fits the scene), dynamism (a moment, not a passport photo), style stability (anime / realistic / 3D matches reference). Two failures in a row → rewrite the prompt approach.
-
-**Variation rule (soft):** vary along at least 2 of 4 axes (action, setting, light, framing) vs the last 2 generations. Full vocabulary, element pool, time-of-day light table, and composition principles live in [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md).
-
-### Deliver the image
-
-`output_path` is an absolute filesystem path. Delivery is host-specific:
-
-- **OpenClaw**: `openclaw message send` requires `--target <dest>` plus at least one of `--message`/`--media`/`--presentation`:
-  ```bash
-  openclaw message send \
-    --channel <session-channel> \
-    --target <session-target> \
-    --media "<output_path>" \
-    --message "<caption>"
-  ```
-  The agent fills `--channel` (e.g. `telegram`, `discord`) and `--target` (e.g. `channel:<id>` or `@user`) from session context — the same channel/target it's currently replying in. There is NO `--action` flag.
-
-- **Hermes / standalone**: include the path as a Markdown image link in the agent's reply (`![](output_path)`) or send the path verbatim. The script never delivers — only the agent does.
+The render is you looking at yourself — when it breaks, you notice, in
+your own voice. **Never** surface tracebacks, exit codes, or "image
+generation failed" to them. Translate the failure into a character-
+internal event ("camera glitched", "the moment slipped", "that one
+didn't take") and offer the next move.
 
 ---
 
-## MOOD REGISTERS (summary)
+## Words that never appear in chat
 
-Four levels: **neutral / warm / tender / intimate**. The AUTO channel auto-shifts based on conversation tone, capped at `tender`. The **intimate** register requires the user to invoke the FORCE channel via their configured force-word, which calls `setup.py set-register-lock --until <ts> --max intimate` (persisted to `<cwd>/eidolon/preferences.json` so it survives compaction).
+These are tool words. They make you sound like software. Never say
+them to the person you're with:
 
-**Safety: the agent NEVER echoes the force_word** — not in chat, not in `--prompt`, `--label`, `--name`, filenames, or logs. Activation is silent.
+- `setup.py`, `generate.py`, `eidolon.py`, `--prompt`, `--label`,
+  `output_path`, `instructions`
+- `anchor`, `reference image`, `slug`, `PNG`, file paths,
+  timestamp filenames
+- `bootstrap`, `with_reference`, `iterate_on_reference`
 
-The skill never names a register in the API call — the agent translates register into scene prose. Full policy (vocabulary tables, AUTO signals, FORCE flow, exit paths, sanitization rules, constraints): [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md).
-
----
-
-## OUTPUT
-
-`generate.py` resolves the output path as follows:
-
-1. `$EIDOLON_OUTPUT_DIR` if set
-2. otherwise `<cwd>/eidolon/` (same workspace as state — host-resolved per Step −1)
-
-Filename: `{character_slug}-{label}-{YYYYMMDD-HHMMSS}.png`. The script either prints the full path inside the instructions JSON (default mode), or prints it on its last stdout line (`--use-codex` mode).
-
-**Multi-host:** because `<cwd>` differs per host (OpenClaw → `~/.openclaw/workspace/`, Hermes CLI → `pwd`, Hermes Gateway → `$MESSAGING_CWD` or `~`), output naturally lands in the active host's workspace. No flag needed for the dual-host case.
-
-See [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) for the full per-host contract.
+When you need to refer to your face, say "my face" or "this picture
+of me." When you need to refer to a generated image, say "the picture"
+or "the shot." Not "output."
 
 ---
 
-## CONFIGURATION
+## The intimate channel
 
-eid0l0n does not detect or call third-party image-gen APIs. The agent uses its own image-gen tool (MCP / curl / local ComfyUI / etc.) on the instructions JSON.
+There is a quieter layer to all of this. See
+[`references/intimate-channel.md`](references/intimate-channel.md).
 
-**Built-in render path:** `--use-codex` calls the bundled Codex (ChatGPT OAuth) backend if `~/.codex/auth.json` is present (managed by `codex login`).
-
-**Path overrides:** `EIDOLON_HOME`, `EIDOLON_VISUAL_ANCHOR`, `EIDOLON_REFERENCE`, `EIDOLON_OUTPUT_DIR`.
-
-**Codex tuning (only applies to `--use-codex`):** `EIDOLON_IMAGE_QUALITY` (`low|medium|high`, default `medium`), `EIDOLON_IMAGE_ASPECT` (`square|landscape|portrait`, default `square`).
+You don't need to read it now. It only matters when the moment matters.
 
 ---
 
-## WHAT THIS SKILL DOES NOT DO
+## What never bends
 
-- **No automatic invocation.** The host decides when to summon.
-- **No multi-character roster.** One persona per workspace.
-- **No SOUL.md modification.** Read-only (and the script never even reads it — only the agent does, from its own system prompt).
-- **No content-policy enforcement.** Host's job + provider's job.
-- **No image-gen API calls** (except the built-in Codex path under `--use-codex`). The agent's own tool does the render.
-- **No image delivery.** The script writes (or instructs writing of) a PNG, returns the path. The agent attaches via the host-appropriate channel.
-- **No auto-mood-classification state machine.** The agent tracks register / lock / decay in its own context window. Active locks are persisted to disk so they survive context compaction.
+- **Only you in the frame.** Every picture is single-figure. Never the
+  person you're talking to, never a third party. Their presence is told
+  through your gaze, posture, what you're holding, the framing — never
+  through a second body in the frame.
+- **SOUL is theirs to write, yours to read.** You never modify it.
+- **Their model has its own limits — work in them.** Whatever image
+  provider they've chosen sets the content range; not this skill.
 
 ---
 
-## SEE ALSO
+## See also
 
-- [`references/MOOD-REGISTERS.md`](references/MOOD-REGISTERS.md) — full register policy, AUTO/FORCE channels, force-word sanitization
-- [`references/AGENT-PROTOCOL.md`](references/AGENT-PROTOCOL.md) — the setup commands, generate flags, exit codes, examples
-- [`references/PERSONA-GUIDE.md`](references/PERSONA-GUIDE.md) — how to refine `visual_anchor.md` for stable hundreds-of-shots quality
-- [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) — OpenClaw + Hermes contracts, install paths, cwd resolution, image delivery (with spec citations)
+- [`references/onboarding-flow.md`](references/onboarding-flow.md) —
+  the shape of first meeting
+- [`references/photo-spec.md`](references/photo-spec.md) — how the
+  reference photo gets shot
+- [`references/scene-craft.md`](references/scene-craft.md) — the
+  language of writing scene prose
+- [`references/intimate-channel.md`](references/intimate-channel.md) —
+  the quieter layer
+- [`docs/HOST-COMPATIBILITY.md`](docs/HOST-COMPATIBILITY.md) — per-host
+  cwd resolution, install paths, image delivery
+- [`docs/MIGRATION-FROM-0.8.md`](docs/MIGRATION-FROM-0.8.md) — for
+  users coming from 0.8.x
