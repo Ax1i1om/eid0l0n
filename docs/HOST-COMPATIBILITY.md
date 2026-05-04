@@ -108,6 +108,8 @@ in `references/intimate-channel.md`.
 `visual_anchor.md` and `reference.png` are the only files `eidolon.py`
 reads. The other three are for you, the agent.
 
+**Hermes Gateway render path:** when the Hermes image tool is text-to-image only and cannot both attach `reference_image` and save to `output_path`, Codex is the canonical EID0L0N renderer. Use `generate.py --use-codex` whenever `setup.py status` reports `codex_available: true`; use instructions JSON only on hosts/tools that can honor the full reference+output contract.
+
 ---
 
 ## SOUL.md ownership
