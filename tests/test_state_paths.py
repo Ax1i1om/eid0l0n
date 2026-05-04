@@ -20,7 +20,7 @@ def test_eidolon_home_env_var_is_honored(tmp_path, monkeypatch):
     assert resolved == target.resolve()
 
 
-def testresolve_state_dir_returns_cwd_eidolon_when_no_env(tmp_path, monkeypatch):
+def test_resolve_state_dir_returns_cwd_eidolon_when_no_env(tmp_path, monkeypatch):
     """When EIDOLON_HOME is unset and cwd is not the source repo,
     resolve_state_dir returns <cwd>/eidolon/."""
     monkeypatch.delenv("EIDOLON_HOME", raising=False)
@@ -32,7 +32,7 @@ def testresolve_state_dir_returns_cwd_eidolon_when_no_env(tmp_path, monkeypatch)
     assert resolved.resolve() == (tmp_path / "eidolon").resolve()
 
 
-def testresolve_state_dir_refuses_source_repo(tmp_path, monkeypatch):
+def test_resolve_state_dir_refuses_source_repo(tmp_path, monkeypatch):
     """When cwd has .git + SKILL.md + scripts/ together, refuse with sys.exit."""
     monkeypatch.delenv("EIDOLON_HOME", raising=False)
     (tmp_path / ".git").mkdir()
@@ -46,7 +46,7 @@ def testresolve_state_dir_refuses_source_repo(tmp_path, monkeypatch):
     assert "source repo" in msg or "EIDOLON_HOME" in msg
 
 
-def testresolve_state_dir_allows_repo_when_only_some_markers_present(tmp_path, monkeypatch):
+def test_resolve_state_dir_allows_repo_when_only_some_markers_present(tmp_path, monkeypatch):
     """Refusal requires ALL three markers; missing any one should NOT refuse."""
     monkeypatch.delenv("EIDOLON_HOME", raising=False)
     # .git + SKILL.md but no scripts/ → not the source repo

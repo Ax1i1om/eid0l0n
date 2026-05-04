@@ -111,13 +111,11 @@ def _account_id(token: str) -> str | None:
     claims = _decode_jwt_payload(token)
     if claims is None:
         return None
-    acct = claims.get("https://api.openai.com/auth", {}).get("chatgpt_account_id")
+    auth_claim = claims.get("https://api.openai.com/auth") or {}
+    if not isinstance(auth_claim, dict):
+        return None
+    acct = auth_claim.get("chatgpt_account_id")
     return acct if isinstance(acct, str) and acct else None
-
-
-def _quality() -> str:
-    q = (os.environ.get("EIDOLON_IMAGE_QUALITY") or "medium").strip().lower()
-    return q if q in ("low", "medium", "high") else "medium"
 
 
 def detect() -> dict:
@@ -162,9 +160,9 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
         headers["ChatGPT-Account-ID"] = acct
 
     client = OpenAI(api_key=token, base_url=CODEX_BASE_URL, default_headers=headers)
-    aspect = (os.environ.get("EIDOLON_IMAGE_ASPECT") or DEFAULT_ASPECT).strip().lower()
-    size = SIZES.get(aspect, SIZES[DEFAULT_ASPECT])
-    quality = _quality()
+    aspect = "square"
+    size = SIZES["square"]
+    quality = "medium"
 
     content: list[dict] = []
     if reference_path is not None:
@@ -267,10 +265,14 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
         try:
             img.save(str(tmp), "PNG")
             tmp.replace(output_path)
-        except Exception:
+        except Exception as e:
             tmp.unlink(missing_ok=True)
-            raise
+            print(f"error: failed to save image: {type(e).__name__}", file=sys.stderr)
+            return False
     except ImportError:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(img_bytes)
+    except Exception as e:
+        print(f"error: failed to process image: {type(e).__name__}", file=sys.stderr)
+        return False
     return True

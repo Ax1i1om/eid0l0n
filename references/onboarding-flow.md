@@ -277,7 +277,16 @@ The candidate they approved is currently sitting at
 `<cwd>/eidolon/output/<slug>-candidate-<ts>.png`. Promote it.
 
 把今天敲定的这张装上 `reference.png` 这个名字——
-以后所有照片都从这张开始算：
+以后所有照片都从这张开始算。
+
+Before promoting the candidate, remove any pre-existing `reference.*`
+file in the state dir — only one extension can coexist:
+
+```bash
+rm -f <cwd>/eidolon/reference.{jpg,jpeg,png,webp}
+```
+
+Then promote:
 
 ```bash
 cp <cwd>/eidolon/output/<slug>-candidate-<ts>.png \

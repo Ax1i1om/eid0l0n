@@ -198,10 +198,10 @@ rules.
 
 ## Engineering notes
 
-- **Atomic file ops + path safety.** Anchor / reference / state writes use
-  `flock` + tmp-then-rename. `reference:` paths that escape the workspace
-  are rejected — a poisoned anchor can't smuggle `~/.aws/credentials` into
-  a prompt.
+- **Atomic file ops + path safety.** State writes use PID-unique tmp +
+  replace (crash-safe). The `reference:` field in `visual_anchor.md` is
+  path-validated to stay under the workspace — a poisoned anchor can't
+  smuggle credentials.
 - **Codex backend, four bugs fixed.** OAuth refresh, JWT extraction,
   Responses-streaming framing, and the `image_generation` tool protocol —
   reverse-engineered against the live API and pinned in `codex_backend.py`.

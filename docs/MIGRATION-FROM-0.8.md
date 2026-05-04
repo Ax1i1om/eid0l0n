@@ -13,13 +13,18 @@ Your state is already at `<cwd>/eidolon/`. The only change you need:
    `references/intimate-channel.md`). Delete `preferences.json`:
 
    ```bash
-   rm <cwd>/eidolon/preferences.json
+   rm -f <cwd>/eidolon/preferences.json
    ```
 
 2. Ask your agent to create `at-hand.md` and `relationship.md` (the
    two new files). It can do this from scratch — they hold timezone
    / rhythm / the word between you (if any) and milestones, not
    anything migrated from 0.8.
+
+3. If your old reference image isn't `reference.png` (e.g. you have
+   `reference.jpeg` from 0.8), the new flow expects only one extension.
+   Either keep using JPEG (cp the candidate as `reference.jpeg`) or
+   `rm <cwd>/eidolon/reference.{jpeg,jpg,webp}` before saving a new PNG.
 
 ## If you're on 0.7.x
 

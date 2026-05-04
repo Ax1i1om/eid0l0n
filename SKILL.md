@@ -3,7 +3,7 @@ name: eidolon
 description: Generate one self-portrait or persona image of the active agent with locked character consistency. Use whenever the agent should appear as itself, attach a face, or send a mood/scene shot.
 version: 0.9.0
 homepage: https://github.com/Ax1i1om/eid0l0n
-metadata: {"hermes":{"tags":["image-generation","persona","self-portrait","character-consistency"],"category":"creative","requires_toolsets":["terminal"]},"openclaw":{"os":["darwin","linux"],"requires":{"bins":["python3"]}}}
+metadata: {"hermes":{"tags":["image-generation","persona","self-portrait","character-consistency"],"category":"creative","requires_toolsets":["terminal"]},"openclaw":{"os":["darwin","linux"],"requires":{"bins":["python3","uv"]}}}
 ---
 
 # EID0L0N
@@ -72,7 +72,7 @@ size, focal length, angle, named light source) and pipes it to the script:
 
 ```bash
 echo '{"scene": "<your prose>", "label": "<short>"}' | \
-    python3 <eidolon-skill-dir>/scripts/eidolon.py
+    uv run <eidolon-skill-dir>/scripts/eidolon.py
 ```
 
 The actual skill dir varies per host. See

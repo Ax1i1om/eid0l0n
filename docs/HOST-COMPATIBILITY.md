@@ -132,8 +132,8 @@ fork is spawned depends on the host:
 
 | Host | Mechanism |
 |------|-----------|
-| OpenClaw | Use the host's documented mechanism for spawning a sub-agent — primitive names vary by version, so consult OpenClaw docs for the current command. The skill assumes the sub-agent runs in the same workspace cwd and inherits the SOUL injection, with the conversation transcript and your hand-written frozen-moment note (appearance / scene / feeling) as its initial context. |
-| Hermes | Use Hermes' sub-agent invocation, whatever the current docs name it. The sub-agent inherits the workspace and SOUL like any normal agent in the host, plus the last 5–10 turns and the frozen-moment note. |
+| OpenClaw | Use whatever sub-agent primitive your loaded tool list exposes (e.g. a Task tool, a `subagent` command, or similar — the name varies by host version). The sub-agent inherits cwd and SOUL injection like any agent on this host. If you can't find such a primitive, fall through to the Standalone row below. |
+| Hermes | Use Hermes' sub-agent invocation tool exposed in your loaded tool list (the name varies by version). Sub-agent inherits the workspace and SOUL like any normal Hermes agent. If unavailable, fall through to Standalone. |
 | Standalone (no host fork primitive available) | This is a degraded fallback — true sub-agent isolation is not available, so context compression risks blurring the character between writing the scene prose and rendering. Read `visual_anchor.md` + `at-hand.md`, write cinematographer's prose, pipe to `eidolon.py`, and render anyway — but expect slightly lower consistency vs. true fork. If consistency drift becomes noticeable, ask the user to switch to a host with sub-agent support. |
 
 The fork ends after the picture. Every shot is its own present moment — no
