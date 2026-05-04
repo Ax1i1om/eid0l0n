@@ -1,6 +1,6 @@
 [project]
 name = "eidolon"
-version = "0.8.0"
+version = "0.9.0"
 description = "Self-onboarding image-generation skill for AI agents — locks one recurring character across all generations. Built for OpenClaw and Hermes."
 readme = "README.md"
 requires-python = ">=3.10"

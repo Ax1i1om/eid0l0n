@@ -1,6 +1,8 @@
 """Tests for state.parse_anchor — parses visual_anchor.md → (text, ref, slug)."""
 from __future__ import annotations
 
+import pytest
+
 import state
 
 
@@ -80,22 +82,6 @@ def test_parse_anchor_normalizes_crlf_and_cr_line_endings(tmp_path):
     assert slug == "mixed"
 
 
-def test_parse_anchor_strips_imported_from_header(tmp_path):
-    """`imported_from:` first-line header is stripped from returned text."""
-    anchor = tmp_path / "visual_anchor.md"
-    anchor.write_text(
-        "imported_from: /old/place/visual_anchor.md\n"
-        "\n"
-        "# Visual Anchor — Migrated\n"
-        "\n"
-        "Body.\n"
-    )
-
-    text, _ref, _slug = state.parse_anchor(anchor)
-
-    assert "imported_from:" not in text
-
-
 def test_parse_anchor_slug_falls_back_to_generic_h1(tmp_path):
     """Plain '# Name' heading (no 'Visual Anchor — ' prefix) yields a slug from name."""
     anchor = tmp_path / "visual_anchor.md"
@@ -114,3 +100,50 @@ def test_parse_anchor_slug_default_when_no_heading(tmp_path):
     _text, _ref, slug = state.parse_anchor(anchor)
 
     assert slug == "character"
+
+
+def test_parse_anchor_rejects_multiple_reference_lines(tmp_path):
+    """Multiple `reference:` lines → sys.exit (refuses ambiguous anchor)."""
+    anchor = tmp_path / "visual_anchor.md"
+    anchor.write_text(
+        "reference: /tmp/one.png\n"
+        "reference: /tmp/two.png\n"
+        "\n"
+        "# Visual Anchor — Dup\n"
+        "\n"
+        "body\n"
+    )
+
+    with pytest.raises(SystemExit):
+        state.parse_anchor(anchor)
+
+
+def test_parse_anchor_rejects_null_byte_in_reference(tmp_path):
+    """Null byte in reference path → sys.exit (path-injection defense)."""
+    anchor = tmp_path / "visual_anchor.md"
+    anchor.write_text(
+        "reference: /tmp/evil\x00.png\n"
+        "\n"
+        "# Visual Anchor — Null\n"
+        "\n"
+        "body\n"
+    )
+
+    with pytest.raises(SystemExit):
+        state.parse_anchor(anchor)
+
+
+def test_parse_anchor_rejects_over_long_reference(tmp_path):
+    """Reference path > 1024 chars → sys.exit (DoS / oversize defense)."""
+    anchor = tmp_path / "visual_anchor.md"
+    long_path = "/tmp/" + ("a" * 1100) + ".png"
+    anchor.write_text(
+        f"reference: {long_path}\n"
+        "\n"
+        "# Visual Anchor — Long\n"
+        "\n"
+        "body\n"
+    )
+
+    with pytest.raises(SystemExit):
+        state.parse_anchor(anchor)

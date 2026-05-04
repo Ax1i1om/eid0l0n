@@ -27,6 +27,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -62,49 +63,59 @@ SIZES = {
     "portrait":  "1024x1536",
 }
 
+_REF_EXT_WHITELIST = {"png", "jpeg", "jpg", "webp"}
+
 RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_BASE = 0.5
 
 
-def _read_token() -> str | None:
-    if not CODEX_AUTH_PATH.exists():
-        return None
-    try:
-        data = json.loads(CODEX_AUTH_PATH.read_text())
-    except (OSError, json.JSONDecodeError):
-        return None
-    token = (data.get("tokens") or {}).get("access_token")
-    if not isinstance(token, str) or not token.strip():
-        return None
-    try:
-        parts = token.split(".")
-        if len(parts) >= 2:
-            payload = parts[1] + "=" * (-len(parts[1]) % 4)
-            claims = json.loads(base64.urlsafe_b64decode(payload))
-            exp = claims.get("exp", 0)
-            if exp and time.time() > exp:
-                return None
-    except Exception:
-        pass
-    return token.strip()
-
-
-def _account_id(token: str) -> str | None:
+def _decode_jwt_payload(token: str) -> dict | None:
+    """Decode JWT payload (no signature verification — we only read claims)."""
     try:
         parts = token.split(".")
         if len(parts) < 2:
             return None
         payload = parts[1] + "=" * (-len(parts[1]) % 4)
-        claims = json.loads(base64.urlsafe_b64decode(payload))
-        acct = claims.get("https://api.openai.com/auth", {}).get("chatgpt_account_id")
-        return acct if isinstance(acct, str) and acct else None
-    except Exception:
+        return json.loads(base64.urlsafe_b64decode(payload))
+    except (ValueError, json.JSONDecodeError):
         return None
 
 
-def _quality() -> str:
-    q = (os.environ.get("EIDOLON_IMAGE_QUALITY") or "medium").strip().lower()
-    return q if q in ("low", "medium", "high") else "medium"
+def _read_token() -> str | None:
+    if not CODEX_AUTH_PATH.exists():
+        return None
+    # Defensive: refuse oversized auth.json (corrupt/malicious)
+    try:
+        if CODEX_AUTH_PATH.stat().st_size > 1_000_000:
+            return None
+    except OSError:
+        return None
+    try:
+        data = json.loads(CODEX_AUTH_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    token = (data.get("tokens") or {}).get("access_token")
+    if not isinstance(token, str) or not token.strip():
+        return None
+    # JWT exp check; failure to decode → reject (don't let bad tokens through)
+    claims = _decode_jwt_payload(token)
+    if claims is None:
+        return None
+    exp = claims.get("exp", 0)
+    if not exp or time.time() > exp:
+        return None
+    return token.strip()
+
+
+def _account_id(token: str) -> str | None:
+    claims = _decode_jwt_payload(token)
+    if claims is None:
+        return None
+    auth_claim = claims.get("https://api.openai.com/auth") or {}
+    if not isinstance(auth_claim, dict):
+        return None
+    acct = auth_claim.get("chatgpt_account_id")
+    return acct if isinstance(acct, str) and acct else None
 
 
 def detect() -> dict:
@@ -149,23 +160,37 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
         headers["ChatGPT-Account-ID"] = acct
 
     client = OpenAI(api_key=token, base_url=CODEX_BASE_URL, default_headers=headers)
-    aspect = (os.environ.get("EIDOLON_IMAGE_ASPECT") or DEFAULT_ASPECT).strip().lower()
-    size = SIZES.get(aspect, SIZES[DEFAULT_ASPECT])
-    quality = _quality()
+    aspect = "square"
+    size = SIZES["square"]
+    quality = "medium"
 
     content: list[dict] = []
     if reference_path is not None:
-        ext = reference_path.suffix.lstrip(".").lower() or "jpeg"
+        ext = reference_path.suffix.lstrip(".").lower()
         if ext == "jpg":
             ext = "jpeg"
+        if ext not in _REF_EXT_WHITELIST:
+            print(f"error: reference image must be png/jpeg/webp, got: {ext}",
+                  file=sys.stderr)
+            return False
+        try:
+            if reference_path.stat().st_size > 20_000_000:
+                print(f"error: reference image too large (>20MB): {reference_path}",
+                      file=sys.stderr)
+                return False
+        except OSError as e:
+            print(f"error: cannot stat reference image: {e}", file=sys.stderr)
+            return False
         b64 = base64.b64encode(reference_path.read_bytes()).decode()
-        content.append({"type": "input_image", "image_url": f"data:image/{ext};base64,{b64}"})
+        content.append({"type": "input_image",
+                        "image_url": f"data:image/{ext};base64,{b64}"})
     content.append({"type": "input_text", "text": prompt})
 
     print(f"  · codex / {CODEX_IMAGE_MODEL} ({quality}, {size})", file=sys.stderr)
 
     def _call() -> bytes | None:
         image_b64: str | None = None
+        partial_b64: str | None = None  # only used if no done event arrives
         with client.responses.stream(
             model=CODEX_HOST_MODEL,
             store=False,
@@ -197,14 +222,15 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
                 elif event_type == "response.image_generation_call.partial_image":
                     partial = getattr(event, "partial_image_b64", None)
                     if isinstance(partial, str) and partial:
-                        image_b64 = partial
+                        partial_b64 = partial
             final = stream.get_final_response()
         for item in getattr(final, "output", None) or []:
             if getattr(item, "type", None) == "image_generation_call":
                 result = getattr(item, "result", None)
                 if isinstance(result, str) and result:
                     image_b64 = result
-        return base64.b64decode(image_b64) if image_b64 else None
+        final_b64 = image_b64 or partial_b64
+        return base64.b64decode(final_b64) if final_b64 else None
 
     img_bytes: bytes | None = None
     for attempt in range(1, RETRY_ATTEMPTS + 1):
@@ -215,7 +241,8 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
             err = _redact(f"{type(e).__name__}: {e}")
             if _is_retryable(e) and attempt < RETRY_ATTEMPTS:
                 backoff = RETRY_BACKOFF_BASE * (2 ** (attempt - 1))
-                print(f"  codex attempt {attempt}: {err} — retrying in {backoff}s", file=sys.stderr)
+                backoff += random.uniform(0, backoff * 0.3)  # jitter
+                print(f"  codex attempt {attempt}: {err} — retrying in {backoff:.2f}s", file=sys.stderr)
                 time.sleep(backoff)
                 continue
             print(f"  codex attempt {attempt}: {err}", file=sys.stderr)
@@ -233,13 +260,19 @@ def generate(prompt: str, reference_path: Path | None, output_path: Path) -> boo
             bg = PILImage.new("RGB", img.size, (255, 255, 255))
             bg.paste(img, mask=img.split()[3])
             img = bg
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = output_path.with_suffix(output_path.suffix + ".tmp")
-        img.save(str(tmp), "PNG")
-        tmp.replace(output_path)
+        tmp = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+        try:
+            img.save(str(tmp), "PNG")
+            tmp.replace(output_path)
+        except Exception as e:
+            tmp.unlink(missing_ok=True)
+            print(f"error: failed to save image: {type(e).__name__}", file=sys.stderr)
+            return False
     except ImportError:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(img_bytes)
+    except Exception as e:
+        print(f"error: failed to process image: {type(e).__name__}", file=sys.stderr)
+        return False
     return True
